@@ -1530,6 +1530,32 @@ button:active:not(:disabled),
   text-decoration: underline;
 }
 
+/* Horizontal scroll for Traditional, Western & Drinks sections in phone view */
+@media (max-width: 768px) {
+  .home-section .dish-grid {
+    display: flex !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 1.1rem !important;
+    padding-bottom: 1rem !important;
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .home-section .dish-grid::-webkit-scrollbar {
+    display: none;
+  }
+  .home-section .dish-grid .dish-card {
+    flex: 0 0 270px !important;
+    min-width: 270px !important;
+    max-width: 270px !important;
+    scroll-snap-align: start;
+  }
+}
+
 
 
 
