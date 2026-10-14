@@ -178,13 +178,15 @@ export async function signIn(formData) {
     safeNext = rawNext;
   }
 
-  // Smart landing redirect based on role
-  if (role === "delivery") {
-    safeNext = "/delivery";
-  } else if (role === "staff" && (safeNext === "/" || safeNext === "/orders" || safeNext === "/admin")) {
-    safeNext = "/kitchen";
-  } else if (role === "admin" && (safeNext === "/" || safeNext === "/orders")) {
-    safeNext = "/admin";
+  // Smart landing redirect based on role when no specific destination was specified
+  if (safeNext === "/" || safeNext === "/orders") {
+    if (role === "admin") {
+      safeNext = "/admin";
+    } else if (role === "staff") {
+      safeNext = "/kitchen";
+    } else if (role === "delivery") {
+      safeNext = "/delivery";
+    }
   }
 
   redirect(safeNext);

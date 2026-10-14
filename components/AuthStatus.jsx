@@ -17,14 +17,38 @@ export function AuthStatus() {
         if (data?.authenticated && data?.user) {
           setAuth({ authenticated: true, user: data.user });
         } else {
-          // Clear any lingering client cookies
-          document.cookie = "user_name=; path=/; max-age=0;";
-          document.cookie = "user_role=; path=/; max-age=0;";
-          setAuth({ authenticated: false, user: null });
+          // Fallback to client cookies if available
+          const roleMatch = document.cookie.match(/user_role=([^;]+)/);
+          const nameMatch = document.cookie.match(/user_name=([^;]+)/);
+          if (roleMatch && nameMatch) {
+            setAuth({
+              authenticated: true,
+              user: {
+                name: decodeURIComponent(nameMatch[1]),
+                role: roleMatch[1],
+              },
+            });
+          } else {
+            setAuth({ authenticated: false, user: null });
+          }
         }
       })
       .catch(() => {
-        if (active) setAuth({ authenticated: false, user: null });
+        const roleMatch = document.cookie.match(/user_role=([^;]+)/);
+        const nameMatch = document.cookie.match(/user_name=([^;]+)/);
+        if (active) {
+          if (roleMatch && nameMatch) {
+            setAuth({
+              authenticated: true,
+              user: {
+                name: decodeURIComponent(nameMatch[1]),
+                role: roleMatch[1],
+              },
+            });
+          } else {
+            setAuth({ authenticated: false, user: null });
+          }
+        }
       });
 
     return () => {
@@ -90,6 +114,22 @@ export function AuthStatus() {
           }}
         >
           Admin
+        </span>
+      )}
+      {user.role === "delivery" && (
+        <span
+          style={{
+            fontSize: "0.68rem",
+            background: "#2563eb",
+            color: "white",
+            padding: "0.1rem 0.45rem",
+            borderRadius: "999px",
+            fontWeight: "750",
+            letterSpacing: "0.03em",
+            textTransform: "uppercase",
+          }}
+        >
+          Courier
         </span>
       )}
     </Link>

@@ -4,10 +4,28 @@ import { signIn } from "@/app/actions";
 export default async function SignInPage({ searchParams }) {
   const params = await searchParams;
   const next = params?.next || "/orders";
-  const isAdminOrKitchen = Boolean(
-    params?.admin === "true" ||
-    (next && (next.includes("/kitchen") || next.includes("/admin")))
-  );
+  const isKitchen = Boolean(next && next.includes("/kitchen"));
+  const isAdmin = Boolean(next && next.includes("/admin")) || params?.admin === "true";
+  const isDelivery = Boolean(next && next.includes("/delivery"));
+
+  const defaultName = isAdmin
+    ? "System Admin"
+    : isDelivery
+    ? "Abebe Courier"
+    : isKitchen
+    ? "Chef Kassahun"
+    : "Almaz";
+
+  const defaultEmail = isAdmin
+    ? "admin@addiseats.com"
+    : isDelivery
+    ? "delivery@addiseats.com"
+    : isKitchen
+    ? "staff@addiseats.com"
+    : "almaz@example.com";
+
+  const name = params?.name !== undefined ? params.name : defaultName;
+  const email = params?.email !== undefined ? params.email : defaultEmail;
 
   let fieldErrors = {};
   try {
@@ -16,20 +34,97 @@ export default async function SignInPage({ searchParams }) {
     fieldErrors = {};
   }
 
+  const selectedRole = email.toLowerCase().includes("admin")
+    ? "admin"
+    : email.toLowerCase().includes("delivery")
+    ? "delivery"
+    : email.toLowerCase().includes("staff") || email.toLowerCase().includes("chef")
+    ? "staff"
+    : "customer";
+
   return (
     <div className="auth-page">
-      <div className="auth-card">
-        <h1>{isAdminOrKitchen ? "Staff & Admin Access" : "Sign in"}</h1>
+      <div className="auth-card" style={{ maxWidth: "440px" }}>
+        <h1>Sign in</h1>
         <p className="auth-subtitle">
-          {isAdminOrKitchen
-            ? "Sign in with staff or administrator credentials"
-            : next && next !== "/"
+          {next && next !== "/"
             ? `Sign in to access ${next}`
             : "Sign in to your Addis Eats account"}
         </p>
 
-        {/* Form left completely blank - no prefilled values */}
-        <form action={signIn}>
+        {/* Quick Role Switcher Chips (Day 45 feature with all roles) */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.45rem", marginBottom: "1.25rem" }}>
+          <Link
+            href={`/signin?next=${encodeURIComponent(next.includes("/admin") ? next : "/admin")}&name=System+Admin&email=admin%40addiseats.com`}
+            className="btn-secondary"
+            style={{
+              padding: "0.45rem 0.5rem",
+              textAlign: "center",
+              fontSize: "0.78rem",
+              textDecoration: "none",
+              borderRadius: "10px",
+              backgroundColor: selectedRole === "admin" ? "var(--brand)" : "transparent",
+              color: selectedRole === "admin" ? "#fff" : "var(--text)",
+              border: "1px solid var(--border)",
+              fontWeight: selectedRole === "admin" ? "750" : "500",
+            }}
+          >
+            Admin Panel
+          </Link>
+          <Link
+            href={`/signin?next=${encodeURIComponent(next.includes("/kitchen") ? next : "/kitchen")}&name=Chef+Kassahun&email=staff%40addiseats.com`}
+            className="btn-secondary"
+            style={{
+              padding: "0.45rem 0.5rem",
+              textAlign: "center",
+              fontSize: "0.78rem",
+              textDecoration: "none",
+              borderRadius: "10px",
+              backgroundColor: selectedRole === "staff" ? "var(--brand)" : "transparent",
+              color: selectedRole === "staff" ? "#fff" : "var(--text)",
+              border: "1px solid var(--border)",
+              fontWeight: selectedRole === "staff" ? "750" : "500",
+            }}
+          >
+            Kitchen Staff
+          </Link>
+          <Link
+            href={`/signin?next=${encodeURIComponent(next.includes("/delivery") ? next : "/delivery")}&name=Abebe+Courier&email=delivery%40addiseats.com`}
+            className="btn-secondary"
+            style={{
+              padding: "0.45rem 0.5rem",
+              textAlign: "center",
+              fontSize: "0.78rem",
+              textDecoration: "none",
+              borderRadius: "10px",
+              backgroundColor: selectedRole === "delivery" ? "var(--brand)" : "transparent",
+              color: selectedRole === "delivery" ? "#fff" : "var(--text)",
+              border: "1px solid var(--border)",
+              fontWeight: selectedRole === "delivery" ? "750" : "500",
+            }}
+          >
+            Delivery Courier
+          </Link>
+          <Link
+            href={`/signin?next=${encodeURIComponent(next.includes("/orders") ? next : "/orders")}&name=Almaz&email=almaz%40example.com`}
+            className="btn-secondary"
+            style={{
+              padding: "0.45rem 0.5rem",
+              textAlign: "center",
+              fontSize: "0.78rem",
+              textDecoration: "none",
+              borderRadius: "10px",
+              backgroundColor: selectedRole === "customer" ? "var(--brand)" : "transparent",
+              color: selectedRole === "customer" ? "#fff" : "var(--text)",
+              border: "1px solid var(--border)",
+              fontWeight: selectedRole === "customer" ? "750" : "500",
+            }}
+          >
+            Customer Demo
+          </Link>
+        </div>
+
+        <form action={signIn} key={`${name}-${email}`}>
           <input type="hidden" name="next" value={next} />
 
           <div className="field">
@@ -37,7 +132,7 @@ export default async function SignInPage({ searchParams }) {
             <input
               id="name"
               name="name"
-              defaultValue=""
+              defaultValue={name}
               placeholder="Your name"
               required
               autoComplete="name"
@@ -51,7 +146,7 @@ export default async function SignInPage({ searchParams }) {
               id="email"
               name="email"
               type="email"
-              defaultValue=""
+              defaultValue={email}
               placeholder="name@example.com"
               required
               autoComplete="email"
@@ -65,7 +160,7 @@ export default async function SignInPage({ searchParams }) {
               id="password"
               name="password"
               type="password"
-              defaultValue=""
+              defaultValue="password123"
               placeholder="Password"
               required
               autoComplete="current-password"
@@ -74,48 +169,34 @@ export default async function SignInPage({ searchParams }) {
           </div>
 
           <button type="submit" className="btn-primary btn-block">
-            {isAdminOrKitchen ? "Sign in to Portal" : "Sign in"}
+            {selectedRole === "admin"
+              ? "Sign in to Admin Panel"
+              : selectedRole === "staff"
+              ? "Sign in to Kitchen Portal"
+              : selectedRole === "delivery"
+              ? "Sign in to Courier Portal"
+              : "Sign in to Addis Eats"}
           </button>
         </form>
 
-        {/* Role guide shown strictly on the staff/admin portal link */}
-        {isAdminOrKitchen ? (
-          <div
-            style={{
-              marginTop: "1.25rem",
-              padding: "0.75rem",
-              background: "var(--brand-light)",
-              borderRadius: "12px",
-              fontSize: "0.8rem",
-              color: "var(--text)",
-            }}
-          >
-            <strong>Portal Roles Reference:</strong>
-            <ul style={{ margin: "0.35rem 0 0", paddingLeft: "1.2rem", lineHeight: 1.45 }}>
-              <li><strong>Kitchen Staff:</strong> <code>staff@addiseats.com</code> (Access to <code>/kitchen</code>)</li>
-              <li><strong>Delivery Courier:</strong> <code>delivery@addiseats.com</code> (Access to <code>/delivery</code>)</li>
-              <li><strong>Restaurant Admin:</strong> <code>admin@addiseats.com</code> (Access to <code>/admin</code> and full management)</li>
-            </ul>
-            <div style={{ marginTop: "0.5rem", textAlign: "right" }}>
-              <Link href="/signin" style={{ fontSize: "0.78rem", color: "var(--muted)", textDecoration: "underline" }}>
-                Switch to Regular Customer Sign In
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <div style={{ marginTop: "1.25rem", textAlign: "center" }}>
-            <Link
-              href="/signin?admin=true&next=/admin"
-              style={{
-                fontSize: "0.8rem",
-                color: "var(--muted)",
-                textDecoration: "none",
-              }}
-            >
-              Are you restaurant staff or courier? Access Staff &amp; Delivery Portal &gt;
-            </Link>
-          </div>
-        )}
+        <div
+          style={{
+            marginTop: "1.25rem",
+            padding: "0.75rem",
+            background: "var(--brand-light)",
+            borderRadius: "12px",
+            fontSize: "0.8rem",
+            color: "var(--text)",
+          }}
+        >
+          <strong>Demo Role Guide:</strong>
+          <ul style={{ margin: "0.35rem 0 0", paddingLeft: "1.2rem", lineHeight: "1.5" }}>
+            <li><strong>Admin Panel:</strong> <code>admin@addiseats.com</code> (Inventory, Finances, Orders)</li>
+            <li><strong>Kitchen Staff:</strong> <code>staff@addiseats.com</code> (Kitchen preparation queue)</li>
+            <li><strong>Delivery Courier:</strong> <code>delivery@addiseats.com</code> (Pickups and deliveries)</li>
+            <li><strong>Customer:</strong> <code>almaz@example.com</code> (Personal orders &amp; favorites)</li>
+          </ul>
+        </div>
       </div>
     </div>
   );

@@ -65,11 +65,6 @@ export default async function DishPage({ params }) {
 
   return (
     <article>
-      <div style={{ marginBottom: "1rem" }}>
-        <Link href="/menu" className="btn-ghost" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
-          Back to Menu
-        </Link>
-      </div>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

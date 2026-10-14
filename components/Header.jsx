@@ -12,6 +12,15 @@ export function Header() {
 
   useEffect(() => {
     let active = true;
+
+    // Synchronous immediate check from client cookie to eliminate any flicker
+    if (typeof document !== "undefined") {
+      const roleMatch = document.cookie.match(/user_role=([^;]+)/);
+      if (roleMatch) {
+        setRole(roleMatch[1]);
+      }
+    }
+
     fetch("/api/auth/me")
       .then((res) => res.json())
       .then((data) => {
@@ -19,11 +28,13 @@ export function Header() {
         if (data?.authenticated && data?.user) {
           setRole(data.user.role);
         } else {
-          setRole(null);
+          const roleMatch = document.cookie.match(/user_role=([^;]+)/);
+          setRole(roleMatch ? roleMatch[1] : null);
         }
       })
       .catch(() => {
-        if (active) setRole(null);
+        const roleMatch = document.cookie.match(/user_role=([^;]+)/);
+        if (active) setRole(roleMatch ? roleMatch[1] : null);
       });
 
     return () => {
@@ -66,7 +77,7 @@ export function Header() {
           </Link>
 
           {isAdmin ? (
-            /* Admin Only Navigation: Admin can access Kitchen, Delivery, and Admin Panel */
+            /* Admin Only Navigation: Admin can access Kitchen, Delivery, Map, and Admin Panel */
             <>
               <Link href="/kitchen" className={`nav-link ${isActive("/kitchen") ? "nav-link--active" : ""}`}>
                 Kitchen
@@ -74,19 +85,25 @@ export function Header() {
               <Link href="/delivery" className={`nav-link ${isActive("/delivery") ? "nav-link--active" : ""}`}>
                 Delivery
               </Link>
+              <Link href="/track" className={`nav-link ${isActive("/track") ? "nav-link--active" : ""}`}>
+                Live Map
+              </Link>
               <Link href="/admin" className={`nav-link ${isActive("/admin") ? "nav-link--active" : ""}`}>
                 Admin Panel
               </Link>
             </>
           ) : isDelivery ? (
-            /* Delivery Courier Navigation: strictly their own Delivery Panel */
+            /* Delivery Courier Navigation: strictly their Delivery Panel and Live Map */
             <>
               <Link href="/delivery" className={`nav-link ${isActive("/delivery") ? "nav-link--active" : ""}`}>
                 Delivery
               </Link>
+              <Link href="/track" className={`nav-link ${isActive("/track") ? "nav-link--active" : ""}`}>
+                Live Map
+              </Link>
             </>
           ) : isStaff ? (
-            /* Kitchen Staff Navigation: strictly their own Kitchen Panel */
+            /* Kitchen Staff Navigation: strictly their Kitchen Panel */
             <>
               <Link href="/kitchen" className={`nav-link ${isActive("/kitchen") ? "nav-link--active" : ""}`}>
                 Kitchen
@@ -97,6 +114,9 @@ export function Header() {
             <>
               <Link href="/orders" className={`nav-link ${isActive("/orders") ? "nav-link--active" : ""}`}>
                 Orders
+              </Link>
+              <Link href="/track" className={`nav-link ${isActive("/track") ? "nav-link--active" : ""}`}>
+                Live Map
               </Link>
               <Link href="/favorites" className={`nav-link ${isActive("/favorites") ? "nav-link--active" : ""}`}>
                 Favorites

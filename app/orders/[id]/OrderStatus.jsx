@@ -165,10 +165,42 @@ export function OrderStatus({ id, initial }) {
           {current.status === "on-the-way" ? (
             <div>
               <strong>Delivery in Transit:</strong> Kitchen cooking is finished and your courier has picked up the order! Driving to {current.location}. Courier drive time: <strong>{current.estimatedEta || "15-20 mins"}</strong>.
+              <div style={{ marginTop: "0.6rem" }}>
+                <Link
+                  href={`/track/${current.id}`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    fontWeight: "750",
+                    fontSize: "0.88rem",
+                    color: "var(--brand-dark)",
+                    textDecoration: "underline",
+                  }}
+                >
+                  View Courier Moving on Live OpenStreetMap &gt;
+                </Link>
+              </div>
             </div>
           ) : current.status === "served" ? (
             <div>
               <strong>Kitchen Finished:</strong> Cooking is complete and the dish has been served! The delivery courier is picking up your order right now to start driving to {current.location}.
+              <div style={{ marginTop: "0.6rem" }}>
+                <Link
+                  href={`/track/${current.id}`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    fontWeight: "750",
+                    fontSize: "0.88rem",
+                    color: "var(--brand-dark)",
+                    textDecoration: "underline",
+                  }}
+                >
+                  View Route on Live Map &gt;
+                </Link>
+              </div>
             </div>
           ) : (
             <div>
