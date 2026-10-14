@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { validateOrder } from "@/lib/validation";
 import { createOrder } from "@/lib/orders";
-import { randomUUID } from "crypto";
+import { getSession } from "@/lib/session";
 
-// Same schema as the checkout form, enforced again here, because this
-// endpoint can be called by anyone with curl -  not just our own UI.
+// The API shares checkout validation and only creates orders for the signed-in user.
 
 export async function POST(request) {
+  const user = await getSession();
+  if (!user) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
   let body;
   try {
     body = await request.json();
@@ -21,10 +25,11 @@ export async function POST(request) {
   }
 
   const order = createOrder({
+    userId: user.id,
     name: body.name,
     phone: body.phone,
     items: body.items,
-    ownerToken: randomUUID(), // outside callers get an untraceable order
+    ownerToken: user.token,
   });
 
   return NextResponse.json(order, { status: 201 });

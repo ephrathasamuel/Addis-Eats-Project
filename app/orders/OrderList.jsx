@@ -146,9 +146,21 @@ export function OrderList({ orders }) {
                 </strong>
               </div>
 
-              <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
                 <Link href={`/orders/${order.id}`} className="btn-ghost" style={{ fontSize: "0.85rem" }}>
-                  Live Tracking
+                  Status
+                </Link>
+                <Link
+                  href={`/track/${order.id}`}
+                  className="btn-ghost"
+                  style={{
+                    fontSize: "0.85rem",
+                    color: "var(--brand-dark)",
+                    borderColor: "var(--brand)",
+                    backgroundColor: "var(--brand-light)",
+                  }}
+                >
+                  Map Route
                 </Link>
                 {canCancel && (
                   <button

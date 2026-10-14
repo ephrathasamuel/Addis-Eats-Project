@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { validateOrder, validateSignIn } from "@/lib/validation";
 import {
   createOrder,
+  getOrderForUser,
   cancelOrderRecord,
   updateOrderStatus,
   confirmOrderReceived,
@@ -62,10 +63,19 @@ export async function placeOrder(formData) {
   }
 
   const session = await getSession();
-  const userId = session?.id || "usr_guest";
+  if (!session) {
+    const checkoutParams = new URLSearchParams();
+    checkoutParams.set("items", itemsRaw || "[]");
+    checkoutParams.set("name", name || "");
+    checkoutParams.set("phone", phone || "");
+    checkoutParams.set("location", finalLocation || "Bole");
+    checkoutParams.set("estimatedEta", estimatedEta || "20-30 mins");
+    const checkoutPath = `/checkout?${checkoutParams}`;
+    redirect(`/signin?next=${encodeURIComponent(checkoutPath)}`);
+  }
 
   const order = createOrder({
-    userId,
+    userId: session.id,
     name,
     phone,
     items,
@@ -125,8 +135,11 @@ export async function cancelOrder(orderId) {
   if (!user) {
     return { ok: false, status: 401, error: "Authentication required." };
   }
+  if (!getOrderForUser(orderId, user.id, user.role)) {
+    return { ok: false, status: 404, error: "Order not found." };
+  }
 
-  const res = cancelOrderRecord(orderId, user.id, user.role === "staff" || user.role === "admin");
+  const res = cancelOrderRecord(orderId, user.id);
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);
   return res;
@@ -389,10 +402,17 @@ export async function addDailyExpenseAction(formData) {
  * Customer Action: Confirm that the food was received
  */
 export async function confirmDeliveryAction(orderId) {
+  const user = await getSession();
+  if (!user) return { ok: false, status: 401, error: "Authentication required." };
+  if (!getOrderForUser(orderId, user.id, user.role)) {
+    return { ok: false, status: 404, error: "Order not found." };
+  }
+
   const updated = confirmOrderReceived(orderId);
+  if (!updated) return { ok: false, status: 404, error: "Order not found." };
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/orders");
-  return { ok: true, order: updated };
+  return { ok: true, order: getOrderForUser(orderId, user.id, user.role) };
 }
 
 /**
@@ -407,13 +427,20 @@ export async function submitOrderReviewAction(formData) {
     return { ok: false, error: "Order ID missing." };
   }
 
+  const user = await getSession();
+  if (!user) return { ok: false, status: 401, error: "Authentication required." };
+  if (!getOrderForUser(orderId, user.id, user.role)) {
+    return { ok: false, status: 404, error: "Order not found." };
+  }
+
   const updated = submitOrderReview(orderId, rating, comment);
+  if (!updated) return { ok: false, status: 404, error: "Order not found." };
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/orders");
   revalidatePath("/admin");
   revalidatePath("/menu");
   revalidatePath("/favorites");
-  return { ok: true, order: updated };
+  return { ok: true, order: getOrderForUser(orderId, user.id, user.role) };
 }
 
 

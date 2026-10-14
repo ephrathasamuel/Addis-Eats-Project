@@ -1,10 +1,16 @@
-import { getOrder } from "@/lib/orders";
+import { cookies } from "next/headers";
+import { getOrderForUser, getOrderFromCookies, toOrderTrackingData } from "@/lib/orders";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request, { params }) {
   const { id } = await params;
-  const order = getOrder(id);
+  const user = await getSession();
+  const cookieStore = await cookies();
+  getOrderFromCookies(id, cookieStore);
+
+  const order = getOrderForUser(id, user?.id, user?.role);
 
   if (!order) {
     return new Response("Order not found", { status: 404 });
@@ -14,17 +20,16 @@ export async function GET(request, { params }) {
 
   const stream = new ReadableStream({
     start(controller) {
-      // 1. Immediate initial event
-      controller.enqueue(encoder.encode(`data: ${JSON.stringify(order)}\n\n`));
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(toOrderTrackingData(order))}\n\n`));
 
       let step = 0;
       const interval = setInterval(() => {
         step++;
-        const currentOrder = getOrder(id);
+        const currentOrder = getOrderForUser(id, user.id, user.role);
 
         if (!currentOrder || currentOrder.status === "delivered" || currentOrder.status === "cancelled" || step > 20) {
           if (currentOrder) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(currentOrder)}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(toOrderTrackingData(currentOrder))}\n\n`));
           }
           clearInterval(interval);
           controller.close();
@@ -36,7 +41,7 @@ export async function GET(request, { params }) {
         const courierLng = 38.7720 + step * 0.0006;
 
         const update = {
-          ...currentOrder,
+          ...toOrderTrackingData(currentOrder),
           courierLocation: [courierLat, courierLng],
           serverTime: new Date().toISOString(),
         };

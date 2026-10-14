@@ -647,37 +647,64 @@ export function DeliveryBoard({ initialOrders, user }) {
                       marginTop: "0.5rem",
                     }}
                   >
-                    {isAdmin ? (
-                      <div
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                      <Link
+                        href={`/track/${order.id}`}
+                        className="btn-ghost"
                         style={{
-                          textAlign: "center",
-                          padding: "0.45rem",
-                          background: "rgba(37, 99, 235, 0.08)",
-                          borderRadius: "10px",
-                          fontSize: "0.84rem",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "0.45rem",
+                          fontSize: "0.88rem",
+                          fontWeight: "700",
                           color: "#2563eb",
-                          fontWeight: "600",
+                          borderColor: "#2563eb",
+                          background: "rgba(37, 99, 235, 0.08)",
+                          padding: "0.5rem 1rem",
+                          textDecoration: "none",
                         }}
                       >
-                        Admin Monitoring: Courier driving to destination
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleCompleteDelivery(order.id)}
-                        disabled={loadingId === order.id}
-                        className="btn-primary"
-                        style={{
-                          width: "100%",
-                          padding: "0.65rem 1rem",
-                          fontSize: "0.95rem",
-                          backgroundColor: "#16a34a",
-                          borderColor: "#16a34a",
-                        }}
-                      >
-                        {loadingId === order.id ? "Completing..." : "Mark Delivered to Customer"}
-                      </button>
-                    )}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                          <line x1="9" y1="3" x2="9" y2="18" />
+                          <line x1="15" y1="6" x2="15" y2="21" />
+                        </svg>
+                        <span>Open Live Route Map</span>
+                      </Link>
+
+                      {isAdmin ? (
+                        <div
+                          style={{
+                            textAlign: "center",
+                            padding: "0.45rem",
+                            background: "rgba(37, 99, 235, 0.08)",
+                            borderRadius: "10px",
+                            fontSize: "0.84rem",
+                            color: "#2563eb",
+                            fontWeight: "600",
+                          }}
+                        >
+                          Admin Monitoring: Courier driving to destination
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleCompleteDelivery(order.id)}
+                          disabled={loadingId === order.id}
+                          className="btn-primary"
+                          style={{
+                            width: "100%",
+                            padding: "0.65rem 1rem",
+                            fontSize: "0.95rem",
+                            backgroundColor: "#16a34a",
+                            borderColor: "#16a34a",
+                          }}
+                        >
+                          {loadingId === order.id ? "Completing..." : "Mark Delivered to Customer"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

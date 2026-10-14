@@ -52,7 +52,7 @@ export default async function SignInPage({ searchParams }) {
             : "Sign in to your Addis Eats account"}
         </p>
 
-        {/* Quick Role Switcher Chips (Day 45 feature with all roles) */}
+        {/* Quick Role Switcher Chips */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.45rem", marginBottom: "1.25rem" }}>
           <Link
             href={`/signin?next=${encodeURIComponent(next.includes("/admin") ? next : "/admin")}&name=System+Admin&email=admin%40addiseats.com`}

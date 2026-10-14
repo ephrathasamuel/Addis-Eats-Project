@@ -1,6 +1,6 @@
-import { getOrder, getOrderFromCookies } from "@/lib/orders";
-import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
+import { getOrderForUser } from "@/lib/orders";
+import { getSession } from "@/lib/session";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ClearCartOnMount } from "@/components/ClearCartOnMount";
 
@@ -9,14 +9,9 @@ export const dynamic = "force-dynamic";
 export default async function ConfirmationPage({ searchParams }) {
   const params = await searchParams;
   const orderId = params?.order;
-
-  let order = orderId ? getOrder(orderId) : null;
-
-  if (!order && orderId) {
-    const cookieStore = await cookies();
-    order = getOrderFromCookies(orderId, cookieStore);
-  }
-
+  const user = await getSession();
+  if (!user) redirect("/signin?next=/orders");
+  const order = orderId ? getOrderForUser(orderId, user.id) : null;
   if (!order) {
     notFound();
   }
@@ -85,6 +80,21 @@ export default async function ConfirmationPage({ searchParams }) {
         <div className="confirmation-actions">
           <Link href={`/orders/${order.id}`} className="btn-primary confirmation-btn">
             View Live Order Status
+          </Link>
+          <Link
+            href={`/track/${order.id}`}
+            className="btn-secondary confirmation-btn"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.45rem",
+              backgroundColor: "var(--brand-light)",
+              color: "var(--brand-dark)",
+              border: "1px solid var(--border)",
+              fontWeight: "650",
+            }}
+          >
+            Track on Live Map
           </Link>
           <Link href="/menu" className="btn-ghost confirmation-btn">
             Back to Menu

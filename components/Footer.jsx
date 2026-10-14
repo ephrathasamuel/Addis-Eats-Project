@@ -49,7 +49,9 @@ export function Footer() {
         <div className="footer-col">
           <p className="footer-col__title">Explore</p>
           <p><Link href="/menu">Menu</Link></p>
+          <p><Link href="/track">Live Courier Map</Link></p>
           <p><Link href="/favorites">Favorites</Link></p>
+          <p><Link href="/orders">Order History</Link></p>
           <p><Link href="/profile">Your profile</Link></p>
         </div>
 

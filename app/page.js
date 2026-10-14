@@ -86,17 +86,19 @@ export default async function HomePage() {
 
       {/* Value Proposition Strip */}
       <section className="value-strip" aria-label="Why choose Addis Eats">
-        <div className="value-item">
-          <span className="value-item__icon" aria-hidden="true">
+        <Link href="/track" className="value-item" style={{ textDecoration: "none", color: "inherit" }}>
+          <span className="value-item__icon" aria-hidden="true" style={{ color: "var(--brand)" }}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+              <line x1="9" y1="3" x2="9" y2="18" />
+              <line x1="15" y1="6" x2="15" y2="21" />
             </svg>
           </span>
           <div>
-            <strong>35 to 45 Min Express</strong>
-            <p>Fast delivery across Bole, Kazanchis, Piassa & Sarbet</p>
+            <strong>Live Courier GPS Tracking</strong>
+            <p>Real-time OpenStreetMap across Bole, Kazanchis, Piassa &amp; Sarbet</p>
           </div>
-        </div>
+        </Link>
         <div className="value-item">
           <span className="value-item__icon" aria-hidden="true">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

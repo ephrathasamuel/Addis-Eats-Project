@@ -1,16 +1,28 @@
 import Image from "next/image";
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { getDishByIdSync, getDishByNameSync } from "@/lib/dishes";
+import { getSession } from "@/lib/session";
 import OrderForm from "./OrderForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function CheckoutPage({ searchParams }) {
+  const params = await searchParams;
+  const user = await getSession();
+  if (!user) {
+    const checkoutParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(params || {})) {
+      if (typeof value === "string") checkoutParams.set(key, value);
+    }
+    const checkoutPath = `/checkout${checkoutParams.size ? `?${checkoutParams}` : ""}`;
+    redirect(`/signin?next=${encodeURIComponent(checkoutPath)}`);
+  }
+
   const cookieStore = await cookies();
   const returning = Boolean(cookieStore.get("order_owner"));
 
-  const params = await searchParams;
   const itemsRaw = params?.items || "[]";
   let items = [];
   try {

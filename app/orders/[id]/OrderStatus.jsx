@@ -474,6 +474,29 @@ export function OrderStatus({ id, initial }) {
         <Link href="/menu" className="btn-primary">
           Order more dishes
         </Link>
+        <Link
+          href={`/track/${current.id}`}
+          className="btn-secondary"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.45rem",
+            backgroundColor: "var(--brand-light)",
+            color: "var(--brand-dark)",
+            border: "1px solid var(--border)",
+            fontWeight: "650",
+            padding: "0.65rem 1.25rem",
+            borderRadius: "980px",
+            textDecoration: "none",
+          }}
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+            <line x1="9" y1="3" x2="9" y2="18" />
+            <line x1="15" y1="6" x2="15" y2="21" />
+          </svg>
+          <span>Track on Live Map</span>
+        </Link>
         <Link href="/" className="btn-ghost">
           Return home
         </Link>
