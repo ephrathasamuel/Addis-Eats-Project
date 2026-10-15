@@ -1,4 +1,9 @@
-import { getOrdersFor, toOrderTrackingData } from "@/lib/orders";
+import {
+  getAllOrders,
+  getDeliveryOrdersFor,
+  getOrdersFor,
+  toOrderTrackingData,
+} from "@/lib/orders";
 import { getSession } from "@/lib/session";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
@@ -16,7 +21,11 @@ export default async function TrackIndexPage({ searchParams }) {
   const user = await getSession();
   if (!user) redirect("/signin?next=/track");
 
-  const orders = getOrdersFor(user.id);
+  const orders = user.role === "admin"
+    ? getAllOrders()
+    : user.role === "delivery"
+      ? getDeliveryOrdersFor(user.id).filter((order) => order.courierId === user.id)
+      : getOrdersFor(user.id);
   const requestedOrderId = Array.isArray(params?.order) ? params.order[0] : params?.order;
   if (requestedOrderId && !orders.some((order) => String(order.id) === String(requestedOrderId))) {
     notFound();
@@ -26,9 +35,15 @@ export default async function TrackIndexPage({ searchParams }) {
   return (
     <main style={{ maxWidth: "1080px", margin: "2rem auto", padding: "0 1.5rem 4rem" }}>
       <div style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ margin: "0 0 0.35rem" }}>Your Live Delivery Maps</h1>
+        <h1 style={{ margin: "0 0 0.35rem" }}>
+          {user.role === "admin" ? "All Delivery Maps" : user.role === "delivery" ? "My Assigned Delivery Maps" : "Your Live Delivery Maps"}
+        </h1>
         <p style={{ margin: 0, color: "var(--muted)" }}>
-          View live tracking for your orders only.
+          {user.role === "admin"
+            ? "Administrator view of all order maps."
+            : user.role === "delivery"
+              ? "Maps are limited to your assigned deliveries."
+              : "View live tracking for your orders only."}
         </p>
       </div>
 

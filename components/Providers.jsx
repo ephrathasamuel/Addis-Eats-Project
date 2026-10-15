@@ -98,12 +98,8 @@ export function useCart() {
   return ctx;
 }
 
-// Favorites live in the browser the same way the cart does -  a list of
-// dish ids in localStorage, nothing sent to the server. /favorites also
-// checks the (non-httpOnly) user_name cookie to decide whether to show the
-// list or a "sign in first" prompt, but the favorites themselves are not
-// tied to an account on the server -  signing out on this device does not
-// clear them.
+// Favorites live in localStorage and remain device-specific rather than
+// being synchronized to the signed-in account.
 function FavoritesProvider({ children }) {
   const [favorites, setFavorites] = useState([]);
   const [hydrated, setHydrated] = useState(false);

@@ -6,17 +6,17 @@ import { useFavorites } from "@/components/Providers";
 import { getDishByIdSync } from "@/lib/dishes";
 import { DishCard } from "@/components/DishCard";
 
-// Client-rendered for the same reason /cart is: favorites live only in this
-// browser's localStorage, so there is nothing for the server to prerender.
-// Gated behind sign-in (checked the same way AuthStatus does -  the
-// non-httpOnly user_name cookie) because favorites are framed as an
-// account feature here, even though the data itself stays device-local.
+// Favorites stay in this browser's localStorage; authentication is verified
+// against the server session rather than a client-controlled cookie.
 export default function FavoritesPage() {
   const { favorites, hydrated } = useFavorites();
   const [signedIn, setSignedIn] = useState(undefined);
 
   useEffect(() => {
-    setSignedIn(document.cookie.includes("user_name="));
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => setSignedIn(Boolean(data?.authenticated)))
+      .catch(() => setSignedIn(false));
   }, []);
 
   if (!hydrated || signedIn === undefined) {

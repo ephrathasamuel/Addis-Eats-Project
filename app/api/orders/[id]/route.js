@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { getOrderForUser, getOrderFromCookies } from "@/lib/orders";
+import {
+  getOrderForUser,
+  toOrderClientData,
+  toOrderTrackingData,
+} from "@/lib/orders";
 import { getSession } from "@/lib/session";
 
 export async function GET(request, { params }) {
   const { id } = await params;
   const user = await getSession();
-  const cookieStore = await cookies();
-  getOrderFromCookies(id, cookieStore);
 
   const order = getOrderForUser(id, user?.id, user?.role);
 
@@ -15,5 +16,10 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: "Order not found." }, { status: 404 });
   }
 
-  return NextResponse.json(order);
+  return NextResponse.json(
+    user.role === "delivery"
+      ? toOrderTrackingData(order)
+      : toOrderClientData(order),
+    { headers: { "Cache-Control": "private, no-store" } }
+  );
 }

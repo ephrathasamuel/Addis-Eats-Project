@@ -39,9 +39,11 @@ export function KitchenBoard({ initialOrders, isAdmin = false }) {
               : "Kitchen prepares dishes and marks as \"Served\". Couriers manage delivery."}
           </span>
         </div>
-        <Link href="/delivery" className="btn-secondary" style={{ fontSize: "0.88rem", padding: "0.45rem 0.95rem" }}>
-          View Courier Delivery Board →
-        </Link>
+        {isAdmin && (
+          <Link href="/delivery" className="btn-secondary" style={{ fontSize: "0.88rem", padding: "0.45rem 0.95rem" }}>
+            View Courier Delivery Board →
+          </Link>
+        )}
       </div>
 
       {kitchenCooking.length === 0 ? (
@@ -84,15 +86,11 @@ export function KitchenBoard({ initialOrders, isAdmin = false }) {
                   </span>
                 </div>
 
-                <div style={{ fontSize: "0.88rem", color: "var(--muted)", marginBottom: "0.4rem" }}>
-                  Customer: <strong>{order.name}</strong> ({order.phone || "No phone"})
-                </div>
-
                 <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginBottom: "0.5rem" }}>
-                  Placed at: {new Date(order.createdAt).toLocaleTimeString()} | Destination: {order.location || "Bole"}
+                  Placed at: {new Date(order.createdAt).toLocaleTimeString()}
                 </div>
 
-                {order.adminEdited && (
+                {isAdmin && order.adminEdited && (
                   <div
                     style={{
                       background: "rgba(124, 92, 255, 0.12)",

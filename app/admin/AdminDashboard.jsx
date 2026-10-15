@@ -30,7 +30,7 @@ const GALLERY_IMAGES = [
   { label: "Tej Wine", path: "/images/food/tej.jpg" },
 ];
 
-export function AdminDashboard({ initialDishes, favorites, initialOrders, user }) {
+export function AdminDashboard({ initialDishes, initialOrders }) {
   const [dishes, setDishes] = useState(initialDishes);
   const [orders, setOrders] = useState(initialOrders);
   const [activeTab, setActiveTab] = useState("inventory"); // "inventory" | "favorites" | "analytics" | "timings"
@@ -236,8 +236,6 @@ export function AdminDashboard({ initialDishes, favorites, initialOrders, user }
   const rankedFavorites = getDishPopularityByLocation();
 
   const totalDishes = dishes.filter((d) => !d.isRemoved).length;
-  const soldOutCount = dishes.filter((d) => !d.isRemoved && d.isSoldOut).length;
-
   return (
     <div>
       {/* Admin Header */}
@@ -1354,6 +1352,26 @@ export function AdminDashboard({ initialDishes, favorites, initialOrders, user }
                         {totalDoor}
                       </strong>
                     </div>
+
+                    <Link
+                      href={`/track/${encodeURIComponent(String(order.id))}`}
+                      style={{
+                        height: "34px",
+                        padding: "0 0.85rem",
+                        fontSize: "0.82rem",
+                        fontWeight: "600",
+                        borderRadius: "8px",
+                        border: "1px solid rgba(34, 197, 94, 0.35)",
+                        backgroundColor: "rgba(34, 197, 94, 0.12)",
+                        color: "#4ade80",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        textDecoration: "none",
+                      }}
+                    >
+                      View Map
+                    </Link>
 
                     <button
                       type="button"

@@ -1,6 +1,8 @@
 import { getDashboardMetrics } from "@/lib/orders";
 import { RevenueChart } from "./RevenueChart";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +12,10 @@ export const metadata = {
 };
 
 export default async function DashboardPage() {
+  const user = await getSession();
+  if (!user) redirect("/signin?next=/dashboard");
+  if (user.role !== "admin") redirect("/");
+
   // Aggregate server-side so only compact summary data crosses the boundary
   const {
     revenueByNeighbourhood,

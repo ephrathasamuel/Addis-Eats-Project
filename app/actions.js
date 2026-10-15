@@ -1,20 +1,31 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { validateOrder, validateSignIn } from "@/lib/validation";
+import {
+  validateCustomerRegistration,
+  parseDeliveryCoordinates,
+  validateOrder,
+  validateSignIn,
+} from "@/lib/validation";
+import {
+  authenticateAccount,
+  createCustomerAccount,
+} from "@/lib/auth-store";
 import {
   createOrder,
+  getLocationDriveTime,
+  getLocationFee,
   getOrderForUser,
+  getDeliveryOrdersFor,
+  toOrderClientData,
   cancelOrderRecord,
-  updateOrderStatus,
+  updateKitchenOrderStatus,
   confirmOrderReceived,
   submitOrderReview,
   claimAndStartDelivery,
   completeDelivery,
   adminEditOrderRecord,
-  encodeOrder,
 } from "@/lib/orders";
 import { getSession, createSession, clearSession } from "@/lib/session";
 import {
@@ -36,11 +47,14 @@ export async function placeOrder(formData) {
   const itemsRaw = formData.get("items");
   const selectedLocation = formData.get("location") || "Bole";
   const customLocation = formData.get("customLocation");
+  const deliveryCoordinates = parseDeliveryCoordinates(
+    formData.get("deliveryLatitude"),
+    formData.get("deliveryLongitude")
+  );
   const finalLocation =
     selectedLocation === "Other Neighborhood" && customLocation?.trim()
       ? customLocation.trim()
       : selectedLocation;
-  const estimatedEta = formData.get("estimatedEta") || "20-30 mins";
 
   let items = [];
   try {
@@ -50,8 +64,11 @@ export async function placeOrder(formData) {
   }
 
   const { valid, fieldErrors } = validateOrder({ name, phone, items });
+  if (deliveryCoordinates === false) {
+    fieldErrors.deliveryCoordinates = "Choose a valid delivery location or leave the map pin unset.";
+  }
 
-  if (!valid) {
+  if (!valid || deliveryCoordinates === false) {
     const params = new URLSearchParams();
     params.set("items", itemsRaw || "[]");
     params.set("name", name || "");
@@ -69,7 +86,6 @@ export async function placeOrder(formData) {
     checkoutParams.set("name", name || "");
     checkoutParams.set("phone", phone || "");
     checkoutParams.set("location", finalLocation || "Bole");
-    checkoutParams.set("estimatedEta", estimatedEta || "20-30 mins");
     const checkoutPath = `/checkout?${checkoutParams}`;
     redirect(`/signin?next=${encodeURIComponent(checkoutPath)}`);
   }
@@ -79,45 +95,11 @@ export async function placeOrder(formData) {
     name,
     phone,
     items,
-    ownerToken: session?.token || "guest_token",
     location: finalLocation,
-    estimatedEta,
+    estimatedEta: getLocationDriveTime(finalLocation),
+    deliveryFee: getLocationFee(finalLocation),
+    deliveryCoordinates,
   });
-
-  const cookieStore = await cookies();
-  const isProd = process.env.NODE_ENV === "production";
-  try {
-    const encodedOrder = encodeOrder(order);
-    cookieStore.set("last_order", encodedOrder, {
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-      sameSite: "lax",
-      secure: isProd,
-    });
-
-    let recentOrders = [order];
-    const existingRecent = cookieStore.get("recent_orders")?.value;
-    if (existingRecent) {
-      try {
-        let prev = [];
-        try {
-          prev = JSON.parse(Buffer.from(existingRecent, "base64url").toString("utf8"));
-        } catch {
-          prev = JSON.parse(decodeURIComponent(existingRecent));
-        }
-        if (Array.isArray(prev)) {
-          recentOrders = [order, ...prev.filter((o) => String(o.id) !== String(order.id))].slice(0, 10);
-        }
-      } catch {}
-    }
-    const encodedRecent = Buffer.from(JSON.stringify(recentOrders)).toString("base64url");
-    cookieStore.set("recent_orders", encodedRecent, {
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-      sameSite: "lax",
-      secure: isProd,
-    });
-  } catch {}
 
   revalidatePath("/checkout/confirmation");
   revalidatePath("/orders");
@@ -135,6 +117,9 @@ export async function cancelOrder(orderId) {
   if (!user) {
     return { ok: false, status: 401, error: "Authentication required." };
   }
+  if (user.role !== "customer") {
+    return { ok: false, status: 403, error: "Only the customer who placed the order can cancel it." };
+  }
   if (!getOrderForUser(orderId, user.id, user.role)) {
     return { ok: false, status: 404, error: "Order not found." };
   }
@@ -142,7 +127,7 @@ export async function cancelOrder(orderId) {
   const res = cancelOrderRecord(orderId, user.id);
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);
-  return res;
+  return res.ok ? { ok: true } : res;
 }
 
 /**
@@ -150,58 +135,80 @@ export async function cancelOrder(orderId) {
  * Issues an httpOnly session cookie and validates destination to stop open-redirects.
  */
 export async function signIn(formData) {
-  const name = formData.get("name") || "Demo User";
-  const email = formData.get("email");
-  const password = formData.get("password");
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
   const rawNext = formData.get("next") || "/";
 
-  const { valid, fieldErrors } = validateSignIn({ name, email, password });
+  const { valid, fieldErrors } = validateSignIn({ email, password });
 
   if (!valid) {
     const params = new URLSearchParams();
-    params.set("name", name || "");
-    params.set("email", email || "");
+    params.set("email", email);
     params.set("next", rawNext);
     params.set("error", JSON.stringify(fieldErrors));
     redirect(`/signin?${params.toString()}`);
   }
 
-  const emailLower = email.toLowerCase();
-  const isAdmin = emailLower.includes("admin");
-  const isDelivery = emailLower.includes("delivery") || emailLower.includes("courier") || emailLower.includes("driver");
-  const isStaff = !isAdmin && !isDelivery && (emailLower.includes("staff") || emailLower === "chef@addiseats.com" || emailLower.includes("kitchen"));
-  const role = isAdmin ? "admin" : isDelivery ? "delivery" : isStaff ? "staff" : "customer";
-  const userId = isAdmin
-    ? "usr_admin"
-    : isDelivery
-    ? "usr_courier_abebe"
-    : isStaff
-    ? "usr_chef_kassahun"
-    : `usr_${encodeURIComponent(name.toLowerCase().replace(/\s+/g, "_"))}`;
-
-  await createSession({
-    id: userId,
-    name,
-    email,
-    role,
-  });
+  const user = authenticateAccount(email, password);
+  if (!user) {
+    const params = new URLSearchParams({ email, next: String(rawNext), error: "Email or password is incorrect." });
+    redirect(`/signin?${params.toString()}`);
+  }
+  await createSession(user);
 
   let safeNext = "/";
   if (typeof rawNext === "string" && rawNext.startsWith("/") && !rawNext.startsWith("//")) {
     safeNext = rawNext;
   }
 
-  // Smart landing redirect based on role when no specific destination was specified
   if (safeNext === "/" || safeNext === "/orders") {
-    if (role === "admin") {
+    if (user.role === "admin") {
       safeNext = "/admin";
-    } else if (role === "staff") {
+    } else if (user.role === "staff") {
       safeNext = "/kitchen";
-    } else if (role === "delivery") {
+    } else if (user.role === "delivery") {
       safeNext = "/delivery";
     }
   }
 
+  redirect(safeNext);
+}
+
+export async function signUp(formData) {
+  const name = String(formData.get("name") || "").trim();
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
+  const rawNext = formData.get("next") || "/orders";
+  const { valid, fieldErrors } = validateCustomerRegistration({ name, email, password });
+
+  if (!valid) {
+    const params = new URLSearchParams({
+      mode: "register",
+      name,
+      email,
+      next: String(rawNext),
+      error: JSON.stringify(fieldErrors),
+    });
+    redirect(`/signin?${params.toString()}`);
+  }
+
+  const result = createCustomerAccount({ name, email, password });
+  if (!result.ok) {
+    const params = new URLSearchParams({
+      mode: "register",
+      name,
+      email,
+      next: String(rawNext),
+      error: result.error,
+    });
+    redirect(`/signin?${params.toString()}`);
+  }
+
+  await createSession(result.user);
+  const safeNext =
+    typeof rawNext === "string" && rawNext.startsWith("/") && !rawNext.startsWith("//")
+      ? rawNext
+      : "/orders";
   redirect(safeNext);
 }
 
@@ -218,16 +225,17 @@ export async function signOut() {
  */
 export async function updateKitchenStatus(orderId, newStatus) {
   const user = await getSession();
-  if (!user || (user.role !== "staff" && user.role !== "admin" && user.role !== "delivery")) {
-    return { ok: false, status: 403, error: "Unauthorized: Staff or courier permission required." };
+  if (!user || (user.role !== "staff" && user.role !== "admin")) {
+    return { ok: false, status: 403, error: "Unauthorized: Kitchen staff permission required." };
   }
 
-  const updated = updateOrderStatus(orderId, newStatus);
+  const result = updateKitchenOrderStatus(orderId, newStatus, user.id, user.role === "admin");
+  if (!result.ok) return result;
   revalidatePath("/kitchen");
   revalidatePath("/delivery");
   revalidatePath("/admin");
   revalidatePath(`/orders/${orderId}`);
-  return { ok: true, order: updated };
+  return { ok: true, order: { id: result.order.id, status: result.order.status } };
 }
 
 export async function updateDeliveryStatus(orderId, newStatus) {
@@ -239,7 +247,7 @@ export async function updateDeliveryStatus(orderId, newStatus) {
  */
 export async function toggleSoldOutAction(dishId) {
   const user = await getSession();
-  if (!user || (user.role !== "staff" && user.role !== "admin")) {
+  if (!user || user.role !== "admin") {
     return { ok: false, error: "Unauthorized: Admin permission required." };
   }
 
@@ -255,11 +263,11 @@ export async function toggleSoldOutAction(dishId) {
  */
 export async function removeDishAction(dishId) {
   const user = await getSession();
-  if (!user || (user.role !== "staff" && user.role !== "admin")) {
+  if (!user || user.role !== "admin") {
     return { ok: false, error: "Unauthorized: Admin permission required." };
   }
 
-  const dish = removeDish(dishId);
+  removeDish(dishId);
   revalidatePath("/admin");
   revalidatePath("/menu");
   revalidatePath("/");
@@ -271,11 +279,11 @@ export async function removeDishAction(dishId) {
  */
 export async function restoreDishAction(dishId) {
   const user = await getSession();
-  if (!user || (user.role !== "staff" && user.role !== "admin")) {
+  if (!user || user.role !== "admin") {
     return { ok: false, error: "Unauthorized: Admin permission required." };
   }
 
-  const dish = restoreDish(dishId);
+  restoreDish(dishId);
   revalidatePath("/admin");
   revalidatePath("/menu");
   revalidatePath("/");
@@ -404,6 +412,9 @@ export async function addDailyExpenseAction(formData) {
 export async function confirmDeliveryAction(orderId) {
   const user = await getSession();
   if (!user) return { ok: false, status: 401, error: "Authentication required." };
+  if (user.role !== "customer") {
+    return { ok: false, status: 403, error: "Only the customer who placed the order can confirm receipt." };
+  }
   if (!getOrderForUser(orderId, user.id, user.role)) {
     return { ok: false, status: 404, error: "Order not found." };
   }
@@ -412,7 +423,7 @@ export async function confirmDeliveryAction(orderId) {
   if (!updated) return { ok: false, status: 404, error: "Order not found." };
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/orders");
-  return { ok: true, order: getOrderForUser(orderId, user.id, user.role) };
+  return { ok: true };
 }
 
 /**
@@ -429,24 +440,34 @@ export async function submitOrderReviewAction(formData) {
 
   const user = await getSession();
   if (!user) return { ok: false, status: 401, error: "Authentication required." };
+  if (user.role !== "customer") {
+    return { ok: false, status: 403, error: "Only customers can review their own orders." };
+  }
   if (!getOrderForUser(orderId, user.id, user.role)) {
     return { ok: false, status: 404, error: "Order not found." };
   }
+  const parsedRating = Number(rating);
+  if (!Number.isInteger(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+    return { ok: false, status: 400, error: "Rating must be an integer from 1 to 5." };
+  }
+  if (String(comment || "").length > 1000) {
+    return { ok: false, status: 400, error: "Review comments must be 1000 characters or fewer." };
+  }
 
-  const updated = submitOrderReview(orderId, rating, comment);
-  if (!updated) return { ok: false, status: 404, error: "Order not found." };
+  const updated = submitOrderReview(orderId, parsedRating, String(comment || "").trim());
+  if (!updated) return { ok: false, status: 409, error: "Reviews are available once after the order is delivered." };
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/orders");
   revalidatePath("/admin");
   revalidatePath("/menu");
   revalidatePath("/favorites");
-  return { ok: true, order: getOrderForUser(orderId, user.id, user.role) };
+  return { ok: true };
 }
 
 
 export async function claimAndStartDeliveryAction(orderId) {
   const user = await getSession();
-  if (!user || (user.role !== "delivery" && user.role !== "admin")) {
+  if (!user || user.role !== "delivery") {
     return { ok: false, error: "Unauthorized: Delivery courier account required to claim order." };
   }
   const res = claimAndStartDelivery(orderId, user.id, user.name);
@@ -456,7 +477,11 @@ export async function claimAndStartDeliveryAction(orderId) {
     revalidatePath("/kitchen");
     revalidatePath(`/orders/${orderId}`);
   }
-  return res;
+  if (!res.ok) return res;
+  const order = getDeliveryOrdersFor(user.id).find((delivery) => String(delivery.id) === String(orderId));
+  return order
+    ? { ok: true, order }
+    : { ok: false, error: "Order was claimed but could not be loaded for the courier." };
 }
 
 export async function completeDeliveryAction(orderId) {
@@ -470,7 +495,7 @@ export async function completeDeliveryAction(orderId) {
     revalidatePath("/admin");
     revalidatePath(`/orders/${orderId}`);
   }
-  return res;
+  return res.ok ? { ok: true } : res;
 }
 
 export async function adminEditOrderAction(formData) {
@@ -490,5 +515,7 @@ export async function adminEditOrderAction(formData) {
     revalidatePath("/kitchen");
     revalidatePath("/delivery");
   }
-  return res;
+  return res.ok
+    ? { ok: true, order: toOrderClientData(res.order) }
+    : res;
 }

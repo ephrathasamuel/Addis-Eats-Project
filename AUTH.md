@@ -1,66 +1,23 @@
-# AUTH.md - Addis Eats Authentication & Multi-Layer Authorization
+# Authentication and authorization
 
-## Architecture: The Three Layers of Defense
+## Accounts
 
-Authentication verifies who is asking; authorization verifies what they are allowed to do.
-In Addis Eats, security is enforced across three distinct layers:
+- Customers create their own accounts from `/signin?mode=register`. Passwords are stored as salted scrypt hashes in `.addis-data/auth.json`; the password itself is never stored.
+- Staff roles are provisioned by server-only `ADMIN_EMAIL` / `ADMIN_PASSWORD`, `STAFF_EMAIL` / `STAFF_PASSWORD`, and `DELIVERY_EMAIL` / `DELIVERY_PASSWORD` environment variables. Each configured password must be at least 12 characters. Customer registration cannot assign a privileged role.
+- The `addis_session` cookie is a random, HTTP-only, SameSite=Lax opaque token. The server checks it against the session store and revokes its record on sign-out. The browser-readable legacy role/name cookies are not used for authentication or authorization.
+- `.addis-data` is git-ignored. Set `ADDIS_DATA_DIR` to change its location.
 
-| Route or Action | Layer 1: Middleware | Layer 2: Server Component Guard | Layer 3: Action or Scoped Query Guard | What Each Layer Proves |
-|---|---|---|---|---|
-| `/menu`, `/menu/[id]` | Public | Public | Public | Fully public and indexable; no auth needed. |
-| `/checkout` | `middleware.js` redirects unauthenticated users to `/signin?next=/checkout` | Re-verifies `getSession()` before rendering payment and delivery forms | Form submission (`placeOrder`) verifies session and binds order to session `userId` | Layer 1 provides cheap edge redirection; Layer 2 prevents rendering private UI; Layer 3 guarantees the DB write cannot be forged. |
-| `/orders` | `middleware.js` redirects to `/signin?next=/orders` | Checks `getSession()`; redirects if null | Scoped query: calls `getOrdersFor(user.id)`, never accepting an arbitrary ID from search params | Proves that an authenticated user can only view their own past orders. |
-| `/kitchen` | `middleware.js` ensures user is signed in | Server Component evaluates `user.role === 'staff'`; renders 403 Forbidden if not staff | Action `updateKitchenStatus` verifies `user.role === 'staff'` before altering kitchen status | Proves role-based access control (RBAC). A customer account cannot view the queue or update dishes. |
-| `cancelOrder` action | N/A (Server Action) | N/A | Authenticates caller via `getSession()`, verifies `order.userId === user.id` (or staff) | Proves ownership authorization: user A cannot cancel user B's order even if they know the order ID. |
+## Authorization boundaries
 
----
+- Customers may read and mutate only their own orders. Order IDs, query parameters, and client cookies do not establish ownership.
+- Admins may view all order maps and the business dashboard. Admin-only inventory, finance, and order-edit actions verify the server session.
+- Kitchen staff receive unassigned kitchen tickets and tickets assigned to their own account. Kitchen payloads omit customer identity, contact, and destination details. Starting work assigns the ticket to that staff account; only the assigned staff member may finish it.
+- Couriers receive the unclaimed ready-for-pickup pool with only the details needed to choose work, plus their own assigned deliveries. Customer contact details are provided only after a courier claims a ticket. Only the assigned courier can share its GPS location or mark it delivered.
+- Every order status mutation enforces a permitted state transition on the server. UI visibility is not treated as authorization.
+- The dashboard and finance ledger require an administrator session.
 
-## The Three Attack Scenarios and Mitigations
+## Local storage limitation
 
-### Attack 1: Signed Out Console Write Refusal (Bypassing Router Middleware)
-- **Attack Vector:** An unauthenticated attacker sends a direct POST request using `fetch` from the browser console or `curl` directly to the `cancelOrder` or `placeOrder` server action endpoint without passing through the Next.js router UI.
-- **Why it failed:** Middleware is an edge routing optimization, not the security gatekeeper. The server action executes independently on the server and begins with:
-  ```javascript
-  const session = await getSession();
-  if (!session) {
-    return { ok: false, error: "Authentication required to perform this action." };
-  }
-  ```
-  Requests lacking a cryptographically valid `addis_session` cookie are instantly refused with an error response.
+The included JSON store supports a single-process local development server. It is not a concurrency-safe or durable multi-instance production database. Before deploying for real customers, replace account/session and order storage with a shared database, configure backups, and provision privileged accounts through a secret manager. There is no email verification, password reset, MFA, or brute-force rate limiting in this demo.
 
-### Attack 2: Cross-Tenant Ownership Tampering (Writing to Another User's Record)
-- **Attack Vector:** An attacker authenticated as Customer A (User ID `usr_almaz`) issues a POST request to cancel or edit an order belonging to Customer B (User ID `usr_dawit`) by specifying order ID `1001`.
-- **Why it failed:** Server actions enforce strict ownership checks before committing state changes:
-  ```javascript
-  const order = getOrder(orderId);
-  const isOwner = order.userId === session.id;
-  const isAuthorizedStaff = session.role === "staff" || session.role === "admin";
-  if (!isOwner && !isAuthorizedStaff) {
-    return { ok: false, error: "Unauthorized: You do not have permission to modify this order." };
-  }
-  ```
-  Even with knowledge of a valid order ID, foreign accounts cannot alter or cancel another user's order. Furthermore, `/orders` strictly executes `getOrdersFor(session.id)`, ignoring any client-provided user ID query parameter.
-
-### Attack 3: Open Redirect Vulnerability via Crafted Next Parameter
-- **Attack Vector:** A phishing attacker lures a victim to sign in via a manipulated link:
-  `/signin?next=https://malicious-external-site.com/steal-token` or `/signin?next=//malicious-site.com`.
-- **Why it failed:** The `signIn` action in `app/actions.js` sanitizes the redirect target before invoking `redirect`:
-  ```javascript
-  let safeNext = "/orders";
-  if (typeof rawNext === "string" && rawNext.startsWith("/") && !rawNext.startsWith("//")) {
-    safeNext = rawNext;
-  }
-  redirect(safeNext);
-  ```
-  Any protocol-relative or absolute external URL fails validation and defaults securely to internal application routes.
-
----
-
-## Session Security Configuration
-
-- **Cookie Name:** `addis_session`
-- **Flags:**
- - `httpOnly: true`: Prevents client-side scripts (XSS) from reading or stealing session data.
- - `secure: true` (in production): Transmitted exclusively over encrypted HTTPS connections.
- - `sameSite: "lax"`: Protects against cross-site request forgery (CSRF) while allowing legitimate top-level navigation.
- - `path: "/"`: Active across all site routes.
+The delivery map accepts a customer-provided location pin and opt-in courier browser GPS. The courier must keep the delivery page open and grant location permission. It does not fabricate movement. Neighborhood travel-time ranges remain static and are not live routing/traffic ETAs; configure and integrate a routing provider before advertising them as live estimates.

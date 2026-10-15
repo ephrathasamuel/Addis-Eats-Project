@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
-import { getAllOrders } from "@/lib/orders";
+import { getDeliveryOrdersFor } from "@/lib/orders";
 import { DeliveryBoard } from "./DeliveryBoard";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +22,6 @@ export default async function DeliveryPage() {
           Access to the delivery dispatch portal is restricted to courier drivers and administrators. You are currently signed in as <strong>{user.name}</strong> (<code>{user.role}</code> role).
         </p>
         <div style={{ display: "flex", gap: "0.85rem", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link
-            href="/signin?next=/delivery&email=delivery%40addiseats.com&name=Abebe+Courier"
-            className="btn-primary"
-          >
-            Switch to Courier Account
-          </Link>
           <Link href="/" className="btn-secondary">
             Return Home
           </Link>
@@ -36,11 +30,14 @@ export default async function DeliveryPage() {
     );
   }
 
-  const allOrders = getAllOrders();
+  const orders = getDeliveryOrdersFor(user.id, user.role === "admin");
 
   return (
     <main style={{ maxWidth: "1100px", margin: "2rem auto", padding: "0 1.5rem 4rem" }}>
-      <DeliveryBoard initialOrders={allOrders} user={user} />
+      <DeliveryBoard
+        initialOrders={orders}
+        user={{ id: user.id, name: user.name, role: user.role }}
+      />
     </main>
   );
 }

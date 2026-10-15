@@ -9,14 +9,10 @@
 
 - **Production URL:** `https://addis-eats-capstone.vercel.app`
 - **Platform:** Vercel (Next.js 16 with Turbopack)
-- **Deployment Status:** Production Ready
+- **Deployment Status:** Demo deployment; configure shared persistent storage and provisioned staff accounts before production use.
 
 ### Role Access Reference
-For testing multi-role workflows, use the staff portal link on `/signin` or sign in with:
-- **Customer:** Any customer name/email (e.g. `Almaz Bekele`, `almaz@example.com`)
-- **Kitchen Staff:** `staff@addiseats.com` (Access to `/kitchen` queue)
-- **Delivery Courier:** `delivery@addiseats.com` (Access to `/delivery` portal)
-- **Administrator:** `admin@addiseats.com` (Access to `/admin` panel and full management)
+Customers create accounts from `/signin?mode=register`. Staff accounts are provisioned by the server-only `ADMIN_*`, `STAFF_*`, and `DELIVERY_*` environment variables; emails alone do not grant a role. See [AUTH.md](./AUTH.md) for setup and local-store limitations.
 
 ---
 
@@ -26,7 +22,7 @@ When presenting Addis Eats from the live production URL, follow this timed walkt
 
 ### Minute 0 to 1: Problem and Local Addis Ababa Context
 - Introduce Addis Eats: A localized food ordering platform tailored for Addis Ababa, bridging authentic Ethiopian cuisine (Doro Wat, Tibs, Shiro) and Western classics (Burgers, Pizza).
-- Highlight local challenges solved: Clear distinction between kitchen cooking time and courier driving transit time, neighborhood-specific delivery fee calculations across Bole, Kazanchis, Piassa, Sarbet, and CMC, and phone-number-optimized checkout.
+- Highlight local challenges solved: Neighborhood-specific delivery fees and estimated travel-time ranges across Addis Ababa. The current ranges are static, not routing- or traffic-based.
 
 ### Minute 1 to 3: Customer Discovery and Order Placement
 - Demonstrate the homepage hero banner with optimized WebP media and zero layout shift.
@@ -36,8 +32,9 @@ When presenting Addis Eats from the live production URL, follow this timed walkt
 - Proceed to `/checkout`: Show address selection with live delivery fee calculation, double-submit button guard, and form placement.
 
 ### Minute 3 to 5: Live Order Tracking and Post-Delivery Workflow
-- Arrive at `/checkout/confirmation`: Point out the persistent cart clearing via ClearCartOnMount and the kitchen cooking notification banner.
+- Arrive at `/checkout/confirmation`: Point out the persistent cart clearing via ClearCartOnMount and the kitchen status banner.
 - Open `/orders/[id]`: Demonstrate real-time status tracking driven by SWR live polling (every 5 seconds).
+- Courier GPS is opt-in from the courier delivery page and appears only when the assigned courier shares browser location. Customers can optionally add a delivery map pin at checkout.
 - Showcase the Cancel Request action, strictly available within the first 5 minutes of order placement.
 - Show the receipt confirmation prompt ("Did you receive your delivery?") and the post-delivery review card featuring 5 purple stars and feedback submission.
 
@@ -50,7 +47,7 @@ When presenting Addis Eats from the live production URL, follow this timed walkt
 - Explain the 3-layer security defense: Edge middleware, Server Component guards, and Server Action role verification.
 - Highlight the 3 failed attack scenarios documented in `AUTH.md`: console write refusal, foreign user ID tampering refusal, and open-redirect neutralization.
 - Present performance metrics from `PERF.md`: LCP of 1.8s, CLS of 0.00, and 100 Accessibility score.
-- Explain the serverless cold-start solution: base64url cookie hydration and disk persistence preventing container 404s.
+- Explain the local opaque-session store and role-scoped order queries. The included JSON files are for single-process development, not serverless production persistence.
 
 ### Minute 7 to 8: Engineering Retrospective and Module 4 Roadmap
 - Summarize feature triage from `FUTURE.md`: Must/Should/Could decisions.
@@ -62,10 +59,10 @@ When presenting Addis Eats from the live production URL, follow this timed walkt
 ## 3. Five Anchor Files for Code Review
 
 Open these five files in editor tabs to examine the core architecture:
-1. **Server Component:** `app/orders/page.js` - Server-side session verification, cookie hydration, and user-scoped data fetching.
+1. **Server Component:** `app/orders/page.js` - Server-side session verification and user-scoped data fetching.
 2. **Client Component:** `app/orders/[id]/OrderStatus.jsx` - SWR live polling, dynamic interval pausing, receipt confirmation, and 5-star review.
 3. **Protected Server Action:** `app/actions.js` - Multi-role authorization checks for `placeOrder`, `cancelOrder`, and `updateKitchenStatus`.
-4. **Data Layer and Domain State:** `lib/orders.js` - Order state management, base64url cookie serialization, and disk persistence fallback.
+4. **Data Layer and Domain State:** `lib/orders.js` - Order state management, role-scoped data, and workflow transitions.
 5. **Performance Refactor:** `app/menu/DishCard.jsx` - Refactored to pure Server Component to reduce client JavaScript and optimize LCP.
 
 ---
@@ -99,7 +96,10 @@ npm run start
 
 | Variable | Required | Description | Example |
 |---|---|---|---|
-| `SESSION_SECRET` | Yes | 32-character secret key for signing session cookies | `addis_eats_secure_session_key_32c` |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Required to enable admin login | Provisioned administrator credentials; password must be at least 12 characters | Configure privately |
+| `STAFF_EMAIL` / `STAFF_PASSWORD` | Required to enable kitchen login | Provisioned kitchen staff credentials | Configure privately |
+| `DELIVERY_EMAIL` / `DELIVERY_PASSWORD` | Required to enable courier login | Provisioned courier credentials | Configure privately |
+| `ADDIS_DATA_DIR` | Optional locally | Single-process JSON authentication store directory | `.addis-data` |
 | `NEXT_PUBLIC_SITE_URL` | Yes | Canonical site origin for OpenGraph and metadata | `https://addis-eats-capstone.vercel.app` |
 | `DATABASE_URL` | Optional | Connection string for external PostgreSQL instance | `postgresql://user:pass@host:5432/addiseats` |
 | `NODE_ENV` | Yes | Deployment environment flag | `production` |
@@ -108,7 +108,7 @@ npm run start
 
 ## 6. Project Documentation Index
 
-- `AUTH.md` - Multi-layer defense architecture, session flags, and 3 failed attack verifications.
+- `AUTH.md` - Account setup, authorization boundaries, and local-store production limitations.
 - `PERF.md` - Performance budget, Core Web Vitals (LCP, CLS, INP), and optimization techniques.
 - `DATA.md` - Client and server data fetching rationale, SWR caching rules, and revalidation models.
 - `FUTURE.md` - Feature triage (Must, Should, Could), cut decisions, and Module 4 backend transition roadmap.

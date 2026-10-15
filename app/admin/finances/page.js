@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminFinancesPage() {
   const user = await getSession();
 
-  if (!user || (user.role !== "admin" && user.role !== "staff")) {
+  if (!user || user.role !== "admin") {
     redirect("/signin?next=/admin/finances");
   }
 

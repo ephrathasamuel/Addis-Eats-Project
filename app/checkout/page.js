@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDishByIdSync, getDishByNameSync } from "@/lib/dishes";
 import { getSession } from "@/lib/session";
@@ -19,9 +18,6 @@ export default async function CheckoutPage({ searchParams }) {
     const checkoutPath = `/checkout${checkoutParams.size ? `?${checkoutParams}` : ""}`;
     redirect(`/signin?next=${encodeURIComponent(checkoutPath)}`);
   }
-
-  const cookieStore = await cookies();
-  const returning = Boolean(cookieStore.get("order_owner"));
 
   const itemsRaw = params?.items || "[]";
   let items = [];
@@ -52,11 +48,6 @@ export default async function CheckoutPage({ searchParams }) {
             Review your selected dishes | Enter delivery address | Pay via TeleBirr or Cash
           </p>
         </div>
-        {returning && (
-          <div className="returning-badge">
-            <span>Verified Customer : Last order on file</span>
-          </div>
-        )}
       </div>
 
       {items.length === 0 && !fieldErrors.items ? (

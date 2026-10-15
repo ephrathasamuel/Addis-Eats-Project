@@ -9,13 +9,29 @@ export default function DeliveryMap({ orderId, initialOrder }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const courierMarkerRef = useRef(null);
+  const courierIconRef = useRef(null);
+  const leafletRef = useRef(null);
 
   const [order, setOrder] = useState(initialOrder);
   const [connected, setConnected] = useState(false);
-  const [courierPos, setCourierPos] = useState([9.018, 38.77]);
-
-  // Delivery target coordinate in Addis Ababa (Bole district)
-  const deliveryPos = [9.0054, 38.7885];
+  const initialCourierLocation = initialOrder.courierLocation;
+  const [courierPos, setCourierPos] = useState(
+    initialCourierLocation
+      ? [initialCourierLocation.latitude, initialCourierLocation.longitude]
+      : null
+  );
+  const initialMapData = useRef({
+    courierPos,
+    deliveryPos: initialOrder.deliveryCoordinates
+      ? [initialOrder.deliveryCoordinates.latitude, initialOrder.deliveryCoordinates.longitude]
+      : null,
+    location: initialOrder.location,
+    neighbourhood: initialOrder.neighbourhood,
+  });
+  const deliveryCoordinates = initialOrder.deliveryCoordinates;
+  const deliveryPos = deliveryCoordinates
+    ? [deliveryCoordinates.latitude, deliveryCoordinates.longitude]
+    : null;
 
   // 1. Consume Server-Sent Events (SSE) stream via EventSource
   useEffect(() => {
@@ -30,8 +46,15 @@ export default function DeliveryMap({ orderId, initialOrder }) {
         const payload = JSON.parse(event.data);
         setOrder((prev) => ({ ...prev, ...payload }));
 
-        if (payload.courierLocation) {
-          setCourierPos(payload.courierLocation);
+        if (
+          payload.courierLocation &&
+          Number.isFinite(payload.courierLocation.latitude) &&
+          Number.isFinite(payload.courierLocation.longitude)
+        ) {
+          setCourierPos([
+            payload.courierLocation.latitude,
+            payload.courierLocation.longitude,
+          ]);
         }
 
         // Close stream upon delivery or cancellation
@@ -61,9 +84,12 @@ export default function DeliveryMap({ orderId, initialOrder }) {
     let L;
     import("leaflet").then((leafletModule) => {
       L = leafletModule.default || leafletModule;
+      leafletRef.current = L;
 
       if (!mapInstanceRef.current && mapContainerRef.current) {
-        const map = L.map(mapContainerRef.current).setView([9.0117, 38.7792], 13);
+        const { courierPos: initialCourierPos, deliveryPos: initialDeliveryPos } = initialMapData.current;
+        const initialCenter = initialCourierPos || initialDeliveryPos || [9.0117, 38.7792];
+        const map = L.map(mapContainerRef.current).setView(initialCenter, 13);
         mapInstanceRef.current = map;
 
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -84,18 +110,23 @@ export default function DeliveryMap({ orderId, initialOrder }) {
           iconAnchor: [17, 17],
         });
 
-        const courierMarker = L.marker(courierPos, { icon: courierIcon })
-          .addTo(map)
-          .bindPopup("<strong>Courier on delivery route</strong>");
-        courierMarkerRef.current = courierMarker;
-
-        L.marker(deliveryPos, { icon: deliveryIcon })
-          .addTo(map)
-          .bindPopup(`<strong>Delivery Destination</strong><br/>${order.name} (${order.neighbourhood || "Bole"})`);
-
-        // Fit map view to both courier and customer address
-        const bounds = L.latLngBounds([courierPos, deliveryPos]);
-        map.fitBounds(bounds, { padding: [50, 50] });
+        courierIconRef.current = courierIcon;
+        const bounds = [];
+        if (initialCourierPos) {
+          courierMarkerRef.current = L.marker(initialCourierPos, { icon: courierIcon })
+            .addTo(map)
+            .bindPopup("Courier GPS location");
+          bounds.push(initialCourierPos);
+        }
+        if (initialDeliveryPos) {
+          const destinationLabel = document.createElement("strong");
+          destinationLabel.textContent = `Delivery destination: ${initialMapData.current.neighbourhood || initialMapData.current.location || "Customer address"}`;
+          L.marker(initialDeliveryPos, { icon: deliveryIcon })
+            .addTo(map)
+            .bindPopup(destinationLabel);
+          bounds.push(initialDeliveryPos);
+        }
+        if (bounds.length > 1) map.fitBounds(L.latLngBounds(bounds), { padding: [50, 50] });
       }
     });
 
@@ -109,8 +140,14 @@ export default function DeliveryMap({ orderId, initialOrder }) {
 
   // Sync courier marker coordinates on live updates
   useEffect(() => {
-    if (courierMarkerRef.current && courierPos) {
+    if (!courierPos || !mapInstanceRef.current || !leafletRef.current) return;
+    if (courierMarkerRef.current) {
       courierMarkerRef.current.setLatLng(courierPos);
+    } else {
+      courierMarkerRef.current = leafletRef.current
+        .marker(courierPos, { icon: courierIconRef.current })
+        .addTo(mapInstanceRef.current)
+        .bindPopup("Courier GPS location");
     }
   }, [courierPos]);
 
@@ -119,7 +156,7 @@ export default function DeliveryMap({ orderId, initialOrder }) {
       {/* Header and Connection status indicator */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
         <div>
-          <h1 style={{ margin: 0 }}>Live Courier Tracking #{order.id}</h1>
+          <h1 style={{ margin: 0 }}>Order Delivery Map #{order.id}</h1>
           <p style={{ margin: "0.25rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
             Placed {relative(order.createdAt)} • {when.format(new Date(order.createdAt))}
           </p>
@@ -137,7 +174,7 @@ export default function DeliveryMap({ orderId, initialOrder }) {
             }}
           />
           <span style={{ fontSize: "0.85rem", color: "var(--muted)", fontWeight: "500" }}>
-            {connected ? "SSE Stream Connected (Live)" : "Stream Disconnected"}
+            {connected ? "Tracking updates connected" : "Tracking updates disconnected"}
           </span>
         </div>
       </div>
@@ -190,7 +227,27 @@ export default function DeliveryMap({ orderId, initialOrder }) {
                 <strong>Destination:</strong> {order.neighbourhood || "Bole"}, Addis Ababa
               </p>
               <p style={{ margin: "0.4rem 0" }}>
-                <strong>Courier Coordinates:</strong> {courierPos[0].toFixed(4)}° N, {courierPos[1].toFixed(4)}° E
+                <strong>Courier GPS:</strong>{" "}
+                {courierPos
+                  ? `${courierPos[0].toFixed(5)}° N, ${courierPos[1].toFixed(5)}° E`
+                  : "Waiting for courier to share location"}
+              </p>
+              {order.courierLocation?.updatedAt && (
+                <p style={{ margin: "0.4rem 0" }}>
+                  <strong>Last location update:</strong>{" "}
+                  {when.format(new Date(order.courierLocation.updatedAt))}
+                </p>
+              )}
+              <p style={{ margin: "0.4rem 0" }}>
+                <strong>Delivery pin:</strong>{" "}
+                {deliveryPos
+                  ? `${deliveryPos[0].toFixed(5)}° N, ${deliveryPos[1].toFixed(5)}° E`
+                  : "Customer did not share a precise map pin"}
+              </p>
+              <p style={{ margin: "0.4rem 0" }}>
+                <strong>Travel-time estimate:</strong>{" "}
+                {order.estimatedEta || "Unavailable"}
+                {order.estimatedEta ? " (neighborhood range; not traffic-aware)" : ""}
               </p>
               <p style={{ margin: "0.4rem 0" }}>
                 <strong>Order Total:</strong> {etb.format(order.total)}

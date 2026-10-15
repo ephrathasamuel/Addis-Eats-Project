@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession, clearSession } from "@/lib/session";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -7,7 +7,10 @@ export async function GET() {
   const user = await getSession();
 
   if (!user) {
-    return NextResponse.json({ authenticated: false, user: null });
+    return NextResponse.json(
+      { authenticated: false, user: null },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
   }
 
   return NextResponse.json({
@@ -18,5 +21,7 @@ export async function GET() {
       email: user.email,
       role: user.role,
     },
+  }, {
+    headers: { "Cache-Control": "private, no-store" },
   });
 }

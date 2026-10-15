@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { getAllOrders } from "@/lib/orders";
+import { getKitchenOrdersFor } from "@/lib/orders";
 import { KitchenBoard } from "./KitchenBoard";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +22,6 @@ export default async function KitchenPage() {
           Access to the kitchen dashboard is restricted to staff members and administrators. You are currently signed in as <strong>{user.name}</strong> (<code>{user.role}</code> role).
         </p>
         <div style={{ display: "flex", gap: "0.85rem", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link
-            href="/signin?next=/kitchen&email=staff%40addiseats.com&name=Chef+Kassahun"
-            className="btn-primary"
-          >
-            Switch to Staff Account
-          </Link>
           <Link href="/" className="btn-secondary">
             Return Home
           </Link>
@@ -36,7 +30,7 @@ export default async function KitchenPage() {
     );
   }
 
-  const orders = getAllOrders();
+  const orders = getKitchenOrdersFor(user.id, user.role === "admin");
 
   return (
     <main style={{ maxWidth: "1040px", margin: "2rem auto", padding: "0 1.5rem" }}>

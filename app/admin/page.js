@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/session";
-import { getAllDishesAdmin, getAdminFavorites } from "@/lib/dishes";
-import { getAllOrders } from "@/lib/orders";
+import { getAllDishesAdmin } from "@/lib/dishes";
+import { getAllOrders, toOrderClientData } from "@/lib/orders";
 import { AdminDashboard } from "./AdminDashboard";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,11 @@ export default async function AdminPage() {
     redirect("/delivery");
   }
 
-  if (user.role !== "staff" && user.role !== "admin") {
+  if (user.role === "staff") {
+    redirect("/kitchen");
+  }
+
+  if (user.role !== "admin") {
     return (
       <main style={{ maxWidth: "620px", margin: "4rem auto", textAlign: "center", padding: "0 1.5rem" }}>
         <h1>403 Forbidden</h1>
@@ -31,12 +35,6 @@ export default async function AdminPage() {
           Access to the restaurant admin panel is restricted to staff and administrators. You are currently signed in as <strong>{user.name}</strong> (<code>{user.role}</code> role).
         </p>
         <div style={{ display: "flex", gap: "0.85rem", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link
-            href="/signin?next=/admin&admin=true&email=staff%40addiseats.com&name=Chef+Kassahun"
-            className="btn-primary"
-          >
-            Switch to Staff Account
-          </Link>
           <Link href="/" className="btn-secondary">
             Return to Menu
           </Link>
@@ -46,16 +44,13 @@ export default async function AdminPage() {
   }
 
   const dishes = getAllDishesAdmin();
-  const favorites = getAdminFavorites();
-  const orders = getAllOrders();
+  const orders = getAllOrders().map(toOrderClientData);
 
   return (
     <main style={{ maxWidth: "1120px", margin: "2rem auto", padding: "0 1.5rem" }}>
       <AdminDashboard
         initialDishes={dishes}
-        favorites={favorites}
         initialOrders={orders}
-        user={user}
       />
     </main>
   );

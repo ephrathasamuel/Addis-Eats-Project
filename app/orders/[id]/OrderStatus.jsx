@@ -72,10 +72,17 @@ export function OrderStatus({ id, initial }) {
 
   const handleConfirmReceived = async () => {
     setIsConfirming(true);
-    await confirmDeliveryAction(current.id);
-    setConfirmedReceived(true);
-    setIsConfirming(false);
-    mutate();
+    try {
+      const result = await confirmDeliveryAction(current.id);
+      if (!result?.ok) {
+        alert(result?.error || "Could not confirm order receipt.");
+        return;
+      }
+      setConfirmedReceived(true);
+      mutate();
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   const handleReviewSubmit = async (e) => {
@@ -85,10 +92,17 @@ export function OrderStatus({ id, initial }) {
     formData.set("orderId", current.id);
     formData.set("rating", String(rating));
     formData.set("comment", comment);
-    await submitOrderReviewAction(formData);
-    setIsReviewed(true);
-    setIsSubmittingReview(false);
-    mutate();
+    try {
+      const result = await submitOrderReviewAction(formData);
+      if (!result?.ok) {
+        alert(result?.error || "Could not submit your review.");
+        return;
+      }
+      setIsReviewed(true);
+      mutate();
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   return (
@@ -140,7 +154,7 @@ export function OrderStatus({ id, initial }) {
         {current.status !== "delivered" && current.status !== "cancelled" && (
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
-              Drive Transit Time
+              Neighborhood Travel-Time Estimate
             </div>
             <div style={{ fontSize: "1.1rem", fontWeight: "600", color: "var(--text)", marginTop: "0.2rem" }}>
               {current.estimatedEta || "15-20 mins"}
@@ -164,7 +178,7 @@ export function OrderStatus({ id, initial }) {
         >
           {current.status === "on-the-way" ? (
             <div>
-              <strong>Delivery in Transit:</strong> Kitchen cooking is finished and your courier has picked up the order! Driving to {current.location}. Courier drive time: <strong>{current.estimatedEta || "15-20 mins"}</strong>.
+              <strong>Delivery in Transit:</strong> Kitchen cooking is finished and your courier has picked up the order. Neighborhood estimate: <strong>{current.estimatedEta || "Unavailable"}</strong> (not traffic-aware).
               <div style={{ marginTop: "0.6rem" }}>
                 <Link
                   href={`/track/${current.id}`}
@@ -178,7 +192,7 @@ export function OrderStatus({ id, initial }) {
                     textDecoration: "underline",
                   }}
                 >
-                  View Courier Moving on Live OpenStreetMap &gt;
+                  View delivery map &gt;
                 </Link>
               </div>
             </div>
@@ -198,13 +212,13 @@ export function OrderStatus({ id, initial }) {
                     textDecoration: "underline",
                   }}
                 >
-                  View Route on Live Map &gt;
+                  View delivery map &gt;
                 </Link>
               </div>
             </div>
           ) : (
             <div>
-              <strong>In Kitchen:</strong> Addis Eats chefs are preparing your food (~15-20 mins cooking). <em>Notice:</em> Estimated delivery time (<strong>{current.estimatedEta || "15-20 mins"}</strong>) accounts for <em>courier driving transit time only</em> and begins after kitchen preparation finishes.
+              <strong>In Kitchen:</strong> Addis Eats chefs are preparing your food (~15-20 mins cooking). The travel-time figure is a static neighborhood range, not a live route or traffic-aware ETA, and applies only after the courier picks up the order.
             </div>
           )}
         </div>

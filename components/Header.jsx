@@ -12,14 +12,7 @@ export function Header() {
 
   useEffect(() => {
     let active = true;
-
-    // Synchronous immediate check from client cookie to eliminate any flicker
-    if (typeof document !== "undefined") {
-      const roleMatch = document.cookie.match(/user_role=([^;]+)/);
-      if (roleMatch) {
-        setRole(roleMatch[1]);
-      }
-    }
+    setRole(null);
 
     fetch("/api/auth/me")
       .then((res) => res.json())
@@ -28,13 +21,11 @@ export function Header() {
         if (data?.authenticated && data?.user) {
           setRole(data.user.role);
         } else {
-          const roleMatch = document.cookie.match(/user_role=([^;]+)/);
-          setRole(roleMatch ? roleMatch[1] : null);
+          setRole(null);
         }
       })
       .catch(() => {
-        const roleMatch = document.cookie.match(/user_role=([^;]+)/);
-        if (active) setRole(roleMatch ? roleMatch[1] : null);
+        if (active) setRole(null);
       });
 
     return () => {

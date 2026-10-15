@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { placeOrder } from "@/app/actions";
-import { useCart } from "@/components/Providers";
 
 const DELIVERY_LOCATIONS = [
   { id: "bole", name: "Bole", driveTime: "15-20 mins", fee: 50, area: "Edna Mall, Medhanialem, Olympia" },
@@ -19,13 +18,14 @@ const DELIVERY_LOCATIONS = [
 ];
 
 export default function OrderForm({ itemsRaw, initialName = "", initialPhone = "", fieldErrors = {} }) {
-  const { clearCart } = useCart();
   const [name, setName] = useState(initialName);
   const [phone, setPhone] = useState(initialPhone);
   const [selectedLocation, setSelectedLocation] = useState("Bole");
   const [customLocation, setCustomLocation] = useState("");
   const [errors, setErrors] = useState(fieldErrors);
   const [pending, setPending] = useState(false);
+  const [deliveryCoordinates, setDeliveryCoordinates] = useState(null);
+  const [locationMessage, setLocationMessage] = useState("");
 
   let parsedItems = [];
   try {
@@ -94,13 +94,34 @@ export default function OrderForm({ itemsRaw, initialName = "", initialPhone = "
     ? customLocation.trim() || "Addis Ababa"
     : selectedLocation;
 
+  function useCurrentLocation() {
+    setLocationMessage("");
+    if (!navigator.geolocation) {
+      setLocationMessage("This browser does not support location sharing.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setDeliveryCoordinates({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        });
+        setLocationMessage("Delivery pin captured. It will be attached to this order.");
+      },
+      (error) => {
+        setLocationMessage(error.message || "Unable to read your location.");
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
+  }
+
   return (
     <form action={placeOrder} onSubmit={handleSubmit} noValidate className="order-form">
       <input type="hidden" name="items" value={itemsRaw} />
       <input type="hidden" name="location" value={finalLocationString} />
       <input type="hidden" name="customLocation" value={customLocation} />
-      <input type="hidden" name="estimatedEta" value={currentDriveTime} />
-      <input type="hidden" name="deliveryFee" value={currentDeliveryFee} />
+      <input type="hidden" name="deliveryLatitude" value={deliveryCoordinates?.latitude ?? ""} />
+      <input type="hidden" name="deliveryLongitude" value={deliveryCoordinates?.longitude ?? ""} />
 
       <div className="field">
         <label htmlFor="name">Full Name</label>
@@ -174,7 +195,7 @@ export default function OrderForm({ itemsRaw, initialName = "", initialPhone = "
         >
           {DELIVERY_LOCATIONS.map((loc) => (
             <option key={loc.id} value={loc.name}>
-              {loc.name} (+{loc.fee} ETB delivery · ~{loc.driveTime} drive)
+              {loc.name} (+{loc.fee} ETB delivery · area estimate {loc.driveTime})
             </option>
           ))}
         </select>
@@ -204,6 +225,22 @@ export default function OrderForm({ itemsRaw, initialName = "", initialPhone = "
         </div>
       )}
 
+      <div className="field">
+        <button type="button" className="btn-secondary" onClick={useCurrentLocation}>
+          {deliveryCoordinates ? "Update delivery map pin" : "Use my location for delivery"}
+        </button>
+        <small style={{ display: "block", marginTop: "0.5rem", color: "var(--muted)" }}>
+          Optional. Your browser will ask permission; this location is attached to this order for courier navigation.
+        </small>
+        {locationMessage && <p role="status" style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>{locationMessage}</p>}
+        {errors.deliveryCoordinates && <p className="field-error" role="alert">{errors.deliveryCoordinates}</p>}
+        {deliveryCoordinates && (
+          <small style={{ display: "block", marginTop: "0.4rem", color: "var(--muted)" }}>
+            Delivery pin: {deliveryCoordinates.latitude.toFixed(5)}, {deliveryCoordinates.longitude.toFixed(5)}
+          </small>
+        )}
+      </div>
+
       {/* Driving Time & Location Delivery Fee Breakdown */}
       <div
         style={{
@@ -225,7 +262,7 @@ export default function OrderForm({ itemsRaw, initialName = "", initialPhone = "
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
           <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--brand-dark)" }}>
-            Estimated Courier Drive Time:
+            Neighborhood travel-time estimate:
           </span>
           <strong style={{ fontSize: "1rem", color: "var(--brand-dark)" }}>
             {currentDriveTime}
@@ -233,7 +270,7 @@ export default function OrderForm({ itemsRaw, initialName = "", initialPhone = "
         </div>
 
         <div style={{ fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.45, borderTop: "1px solid var(--border)", paddingTop: "0.5rem" }}>
-          <strong>Notice:</strong> Estimated delivery time ({currentDriveTime}) accounts for driving time only and does not include kitchen cooking time. Driving begins once kitchen preparation finishes.
+          <strong>Estimate only:</strong> {currentDriveTime} is a static neighborhood range, not a live route or traffic-aware ETA. Driving begins once kitchen preparation finishes.
         </div>
       </div>
 

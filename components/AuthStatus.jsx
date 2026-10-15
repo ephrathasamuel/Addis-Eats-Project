@@ -17,37 +17,12 @@ export function AuthStatus() {
         if (data?.authenticated && data?.user) {
           setAuth({ authenticated: true, user: data.user });
         } else {
-          // Fallback to client cookies if available
-          const roleMatch = document.cookie.match(/user_role=([^;]+)/);
-          const nameMatch = document.cookie.match(/user_name=([^;]+)/);
-          if (roleMatch && nameMatch) {
-            setAuth({
-              authenticated: true,
-              user: {
-                name: decodeURIComponent(nameMatch[1]),
-                role: roleMatch[1],
-              },
-            });
-          } else {
-            setAuth({ authenticated: false, user: null });
-          }
+          setAuth({ authenticated: false, user: null });
         }
       })
       .catch(() => {
-        const roleMatch = document.cookie.match(/user_role=([^;]+)/);
-        const nameMatch = document.cookie.match(/user_name=([^;]+)/);
         if (active) {
-          if (roleMatch && nameMatch) {
-            setAuth({
-              authenticated: true,
-              user: {
-                name: decodeURIComponent(nameMatch[1]),
-                role: roleMatch[1],
-              },
-            });
-          } else {
-            setAuth({ authenticated: false, user: null });
-          }
+          setAuth({ authenticated: false, user: null });
         }
       });
 

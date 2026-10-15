@@ -68,11 +68,11 @@ export default async function ConfirmationPage({ searchParams }) {
           </div>
         </div>
 
-        {/* Real time Tracking Box */}
+        {/* Tracking availability */}
         <div className="confirmation-tracking-prompt">
-          <h3>Track Your Order Live</h3>
+          <h3>Track Your Order</h3>
           <p>
-            Watch real time status updates with automatic 5 second polling. You will receive notification as soon as your food leaves the kitchen.
+            Order status refreshes while this page is open. Courier GPS appears only after your assigned courier opts in to location sharing. Push notifications are not enabled.
           </p>
         </div>
 
@@ -94,7 +94,7 @@ export default async function ConfirmationPage({ searchParams }) {
               fontWeight: "650",
             }}
           >
-            Track on Live Map
+            Open delivery map
           </Link>
           <Link href="/menu" className="btn-ghost confirmation-btn">
             Back to Menu

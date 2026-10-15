@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { claimAndStartDeliveryAction, completeDeliveryAction } from "@/app/actions";
+import { useEffect, useRef, useState } from "react";
+import {
+  claimAndStartDeliveryAction,
+  completeDeliveryAction,
+} from "@/app/actions";
 import { getDishByIdSync, getDishByNameSync } from "@/lib/dishes";
 import Link from "next/link";
 
@@ -9,6 +12,9 @@ export function DeliveryBoard({ initialOrders, user }) {
   const [orders, setOrders] = useState(initialOrders);
   const [loadingId, setLoadingId] = useState(null);
   const [notification, setNotification] = useState("");
+  const [sharingLocation, setSharingLocation] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const lastLocationSentAt = useRef(0);
 
   const isAdmin = user?.role === "admin";
   const courierId = user?.id;
@@ -28,6 +34,7 @@ export function DeliveryBoard({ initialOrders, user }) {
           o.id === orderId
             ? {
                 ...o,
+                ...res.order,
                 status: "on-the-way",
                 courierId: user?.id,
                 courierName: user?.name,
@@ -78,7 +85,7 @@ export function DeliveryBoard({ initialOrders, user }) {
   // Couriers see ONLY their own completed deliveries. Admin sees all completed deliveries.
   const deliveredList = orders.filter((o) =>
     o.status === "delivered" &&
-    (isAdmin || o.courierId === courierId || (!o.courierId && user?.email === "delivery@addiseats.com"))
+    (isAdmin || o.courierId === courierId)
   );
 
   // Earnings: Couriers see ONLY their own earnings. Admin sees total collected across all couriers.
@@ -86,6 +93,54 @@ export function DeliveryBoard({ initialOrders, user }) {
     (sum, o) => sum + (o.deliveryFee || 50),
     0
   );
+  const activeOrderIds = inTransit.map((order) => order.id).join(",");
+
+  useEffect(() => {
+    if (!sharingLocation || !activeOrderIds) return undefined;
+    if (!navigator.geolocation) {
+      setLocationError("This browser does not support courier location sharing.");
+      setSharingLocation(false);
+      return undefined;
+    }
+
+    const orderIds = activeOrderIds.split(",");
+    const watchId = navigator.geolocation.watchPosition(
+      async ({ coords }) => {
+        const now = Date.now();
+        if (now - lastLocationSentAt.current < 10000) return;
+        lastLocationSentAt.current = now;
+        setLocationError("");
+        try {
+          const updates = await Promise.all(
+            orderIds.map(async (orderId) => {
+              const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/location`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  latitude: coords.latitude,
+                  longitude: coords.longitude,
+                }),
+              });
+              const result = await response.json();
+              return response.ok
+                ? { ok: true }
+                : { ok: false, error: result.error || "Location update failed." };
+            })
+          );
+          const failedUpdate = updates.find((result) => !result.ok);
+          if (failedUpdate) setLocationError(failedUpdate.error);
+        } catch {
+          setLocationError("Unable to update delivery location. Please try again.");
+        }
+      },
+      (error) => {
+        setLocationError(error.message || "Unable to read courier location.");
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [sharingLocation, activeOrderIds]);
 
   return (
     <div>
@@ -168,6 +223,25 @@ export function DeliveryBoard({ initialOrders, user }) {
         >
           {notification}
         </div>
+      )}
+
+      {!isAdmin && inTransit.length > 0 && (
+        <section style={{ marginBottom: "1.5rem", padding: "1rem", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--card-bg)" }}>
+          <p style={{ margin: "0 0 0.75rem", color: "var(--muted)", lineHeight: 1.5 }}>
+            Share your device location while this page is open so customers can see your courier position. Location sharing is optional and stops when you turn it off or leave this page.
+          </p>
+          <button
+            type="button"
+            className={sharingLocation ? "btn-secondary" : "btn-primary"}
+            onClick={() => {
+              setLocationError("");
+              setSharingLocation((enabled) => !enabled);
+            }}
+          >
+            {sharingLocation ? "Stop sharing location" : "Share live courier location"}
+          </button>
+          {locationError && <p role="alert" className="field-error" style={{ marginBottom: 0 }}>{locationError}</p>}
+        </section>
       )}
 
       {/* Courier KPI Metrics */}
@@ -377,13 +451,23 @@ export function DeliveryBoard({ initialOrders, user }) {
                     </div>
 
                     <div style={{ marginBottom: "0.6rem" }}>
-                      <div style={{ fontSize: "1.05rem", fontWeight: "700" }}>{order.name}</div>
-                      <div style={{ fontSize: "0.9rem", color: "var(--muted)", marginTop: "0.15rem" }}>
-                        Phone:{" "}
-                        <a href={`tel:${order.phone}`} style={{ fontWeight: "650", color: "var(--brand)" }}>
-                          {order.phone}
-                        </a>
-                      </div>
+                      {isAdmin ? (
+                        <>
+                          <div style={{ fontSize: "1.05rem", fontWeight: "700" }}>{order.name}</div>
+                          {order.phone && (
+                            <div style={{ fontSize: "0.9rem", color: "var(--muted)", marginTop: "0.15rem" }}>
+                              Phone:{" "}
+                              <a href={`tel:${order.phone}`} style={{ fontWeight: "650", color: "var(--brand)" }}>
+                                {order.phone}
+                              </a>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span style={{ color: "var(--muted)", fontSize: "0.88rem" }}>
+                          Customer contact details are available after you claim this order.
+                        </span>
+                      )}
                     </div>
 
                     {order.adminEdited && (
@@ -415,7 +499,7 @@ export function DeliveryBoard({ initialOrders, user }) {
                         Destination: <strong>{order.location}</strong>
                       </div>
                       <div style={{ marginTop: "0.25rem", fontSize: "0.82rem", color: "var(--muted)" }}>
-                        Estimated Drive: <strong>{order.estimatedEta || "15-20 mins"}</strong> (transit only)
+                        Neighborhood estimate: <strong>{order.estimatedEta || "Unavailable"}</strong> (not traffic-aware)
                       </div>
                       <div
                         style={{
@@ -576,17 +660,32 @@ export function DeliveryBoard({ initialOrders, user }) {
                     </div>
 
                     <div style={{ marginBottom: "0.6rem" }}>
-                      <div style={{ fontSize: "1.05rem", fontWeight: "700" }}>{order.name}</div>
-                      <div style={{ fontSize: "0.9rem", color: "var(--muted)", marginTop: "0.15rem" }}>
-                        Phone:{" "}
-                        <a href={`tel:${order.phone}`} style={{ fontWeight: "650", color: "var(--brand)" }}>
-                          {order.phone}
-                        </a>
-                      </div>
+                      {order.courierId === courierId || isAdmin ? (
+                        <>
+                          <div style={{ fontSize: "1.05rem", fontWeight: "700" }}>{order.name}</div>
+                          {order.phone && (
+                            <div style={{ fontSize: "0.9rem", color: "var(--muted)", marginTop: "0.15rem" }}>
+                              Phone:{" "}
+                              <a href={`tel:${order.phone}`} style={{ fontWeight: "650", color: "var(--brand)" }}>
+                                {order.phone}
+                              </a>
+                            </div>
+                          )}
+                        </>
+                      ) : null}
                       {isAdmin && order.courierName && (
                         <div style={{ fontSize: "0.85rem", color: "#2563eb", marginTop: "0.2rem", fontWeight: "600" }}>
                           Courier: {order.courierName}
                         </div>
+                      )}
+                      {!isAdmin && (
+                        <Link
+                          href={`/track/${encodeURIComponent(String(order.id))}`}
+                          className="btn-secondary"
+                          style={{ display: "inline-flex", marginBottom: "0.75rem" }}
+                        >
+                          Open delivery map
+                        </Link>
                       )}
                     </div>
 
@@ -619,7 +718,7 @@ export function DeliveryBoard({ initialOrders, user }) {
                         Destination: <strong>{order.location}</strong>
                       </div>
                       <div style={{ marginTop: "0.25rem", fontSize: "0.82rem", color: "var(--muted)" }}>
-                        Target Drive Time: <strong>{order.estimatedEta || "15-20 mins"}</strong>
+                        Neighborhood estimate: <strong>{order.estimatedEta || "Unavailable"}</strong> (not traffic-aware)
                       </div>
                       <div
                         style={{
@@ -732,7 +831,6 @@ export function DeliveryBoard({ initialOrders, user }) {
           }}
         >
           {deliveredList.slice(0, 10).map((order) => {
-            const foodCost = order.foodTotal || (order.total - (order.deliveryFee || 50));
             const deliveryCost = order.deliveryFee || 50;
 
             return (
