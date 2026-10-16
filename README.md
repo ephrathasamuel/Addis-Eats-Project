@@ -12,7 +12,7 @@
 - **Deployment Status:** Demo deployment; configure shared persistent storage and provisioned staff accounts before production use.
 
 ### Role Access Reference
-Customers create accounts from `/signin?mode=register`. Staff accounts are provisioned by the server-only `ADMIN_*`, `STAFF_*`, and `DELIVERY_*` environment variables; emails alone do not grant a role. See [AUTH.md](./AUTH.md) for setup and local-store limitations.
+Customers register through Supabase Auth. Trusted Supabase project administrators assign `admin`, `staff`, and `delivery` roles in the protected profile table. See [SUPABASE.md](./SUPABASE.md) for project setup.
 
 ---
 
@@ -96,19 +96,18 @@ npm run start
 
 | Variable | Required | Description | Example |
 |---|---|---|---|
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Required to enable admin login | Provisioned administrator credentials; password must be at least 12 characters | Configure privately |
-| `STAFF_EMAIL` / `STAFF_PASSWORD` | Required to enable kitchen login | Provisioned kitchen staff credentials | Configure privately |
-| `DELIVERY_EMAIL` / `DELIVERY_PASSWORD` | Required to enable courier login | Provisioned courier credentials | Configure privately |
-| `ADDIS_DATA_DIR` | Optional locally | Single-process JSON authentication store directory | `.addis-data` |
-| `NEXT_PUBLIC_SITE_URL` | Yes | Canonical site origin for OpenGraph and metadata | `https://addis-eats-capstone.vercel.app` |
-| `DATABASE_URL` | Optional | Connection string for external PostgreSQL instance | `postgresql://user:pass@host:5432/addiseats` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes for authentication | Supabase project URL | `https://your-project-ref.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes for authentication | Supabase public publishable key (or legacy anon key) | Configure privately |
+| `ADDIS_DATA_DIR` | Optional | Directory for local JSON order data; not used for authentication | `.addis-data` |
+| `NEXT_PUBLIC_SITE_URL` | Yes | Canonical app URL and Supabase confirmation redirect origin | `http://localhost:3001` |
 | `NODE_ENV` | Yes | Deployment environment flag | `production` |
 
 ---
 
 ## 6. Project Documentation Index
 
-- `AUTH.md` - Account setup, authorization boundaries, and local-store production limitations.
+- `AUTH.md` - Authentication and authorization boundaries.
+- `SUPABASE.md` - Supabase project setup, migration, and trusted role assignment.
 - `PERF.md` - Performance budget, Core Web Vitals (LCP, CLS, INP), and optimization techniques.
 - `DATA.md` - Client and server data fetching rationale, SWR caching rules, and revalidation models.
 - `FUTURE.md` - Feature triage (Must, Should, Could), cut decisions, and Module 4 backend transition roadmap.

@@ -10,6 +10,7 @@ export default function PasswordInput({
   required = true,
   minLength,
   maxLength,
+  defaultValue,
 }) {
   const [visible, setVisible] = useState(false);
 
@@ -24,6 +25,7 @@ export default function PasswordInput({
         placeholder={placeholder}
         required={required}
         autoComplete={autoComplete}
+        defaultValue={defaultValue}
       />
       <button
         type="button"

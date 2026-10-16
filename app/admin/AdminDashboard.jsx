@@ -263,9 +263,6 @@ export function AdminDashboard({ initialDishes, initialOrders }) {
         </div>
 
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-          <Link href="/admin/staff" className="btn-secondary" style={{ fontSize: "0.88rem", padding: "0.5rem 1rem" }}>
-            Staff Accounts
-          </Link>
           <Link href="/menu" className="btn-secondary" style={{ fontSize: "0.88rem", padding: "0.5rem 1rem" }}>
             Customer Menu
           </Link>

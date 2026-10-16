@@ -67,20 +67,6 @@ export default async function ProfilePage() {
             >
               Open Kitchen Queue
             </Link>
-            <Link
-              href="/delivery"
-              className="btn-secondary"
-              style={{ padding: "0.75rem 1.25rem", fontSize: "0.95rem" }}
-            >
-              Open Delivery Queue
-            </Link>
-            <Link
-              href="/admin/staff"
-              className="btn-secondary"
-              style={{ padding: "0.75rem 1.25rem", fontSize: "0.95rem" }}
-            >
-              Manage Staff Accounts
-            </Link>
           </div>
         </section>
       </div>
@@ -128,49 +114,6 @@ export default async function ProfilePage() {
               Open Kitchen Queue
             </Link>
           </div>
-        </section>
-      </div>
-    );
-  }
-
-  // --- DELIVERY COURIER PROFILE ---
-  if (user.role === "delivery") {
-    return (
-      <div className="profile-page" style={{ maxWidth: "800px", margin: "2rem auto", padding: "0 1.5rem" }}>
-        <div className="profile-header">
-          <div>
-            <h1 style={{ margin: 0 }}>{user.name}</h1>
-            <p className="empty" style={{ margin: "0.25rem 0 0", color: "var(--muted)" }}>{user.email}</p>
-          </div>
-
-          <form action={signOut}>
-            <button type="submit" className="btn-ghost">
-              Sign out
-            </button>
-          </form>
-        </div>
-
-        <section
-          style={{
-            background: "var(--card-bg)",
-            border: "1px solid var(--border)",
-            borderRadius: "20px",
-            padding: "1.75rem",
-            boxShadow: "0 2px 8px var(--shadow-color)",
-            marginTop: "1.5rem",
-          }}
-        >
-          <h2 style={{ margin: "0 0 0.5rem", fontSize: "1.25rem" }}>Delivery Operations Portal</h2>
-          <p style={{ color: "var(--muted)", fontSize: "0.92rem", marginBottom: "1.5rem" }}>
-            View available pickups and manage only the deliveries assigned to your courier account.
-          </p>
-          <Link
-            href="/delivery"
-            className="btn-primary"
-            style={{ padding: "0.75rem 1.25rem", fontSize: "0.95rem" }}
-          >
-            Open Delivery Queue
-          </Link>
         </section>
       </div>
     );
