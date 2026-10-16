@@ -3,7 +3,7 @@
 ## Accounts
 
 - Customers create their own accounts from `/signin?mode=register`. Passwords are stored as salted scrypt hashes in `.addis-data/auth.json`; the password itself is never stored.
-- Staff roles are provisioned by server-only `ADMIN_EMAIL` / `ADMIN_PASSWORD`, `STAFF_EMAIL` / `STAFF_PASSWORD`, and `DELIVERY_EMAIL` / `DELIVERY_PASSWORD` environment variables. Each configured password must be at least 12 characters. Customer registration cannot assign a privileged role.
+- The administrator is provisioned by server-only `ADMIN_EMAIL` / `ADMIN_PASSWORD` environment variables. An administrator can create multiple kitchen and delivery accounts from `/admin/staff`; those accounts are stored in `.addis-data/auth.json` with salted scrypt password hashes. Optional initial `STAFF_EMAIL` / `STAFF_PASSWORD` and `DELIVERY_EMAIL` / `DELIVERY_PASSWORD` environment accounts are also supported. Each password must be at least 12 characters. Customer registration cannot assign a privileged role.
 - The `addis_session` cookie is a random, HTTP-only, SameSite=Lax opaque token. The server checks it against the session store and revokes its record on sign-out. The browser-readable legacy role/name cookies are not used for authentication or authorization.
 - `.addis-data` is git-ignored. Set `ADDIS_DATA_DIR` to change its location.
 

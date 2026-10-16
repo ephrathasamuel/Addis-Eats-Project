@@ -11,6 +11,7 @@ import {
 import {
   authenticateAccount,
   createCustomerAccount,
+  createManagedStaffAccount,
 } from "@/lib/auth-store";
 import {
   createOrder,
@@ -210,6 +211,31 @@ export async function signUp(formData) {
       ? rawNext
       : "/orders";
   redirect(safeNext);
+}
+
+export async function createStaffAccountAction(formData) {
+  const user = await getSession();
+  if (!user || user.role !== "admin") {
+    redirect("/signin?next=/admin/staff");
+  }
+
+  const result = createManagedStaffAccount({
+    name: formData.get("name"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+    role: formData.get("role"),
+  });
+  if (!result.ok) {
+    const error = result.error === "An account with this email already exists."
+      ? "duplicate"
+      : result.error === "Choose a valid staff role."
+        ? "role"
+        : "invalid";
+    redirect(`/admin/staff?error=${error}`);
+  }
+
+  revalidatePath("/admin/staff");
+  redirect("/admin/staff?created=1");
 }
 
 /**

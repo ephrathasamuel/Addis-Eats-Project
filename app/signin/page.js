@@ -1,5 +1,6 @@
 import { signIn, signUp } from "@/app/actions";
 import Link from "next/link";
+import PasswordInput from "@/components/PasswordInput";
 
 export default async function SignInPage({ searchParams }) {
   const params = await searchParams;
@@ -60,10 +61,8 @@ export default async function SignInPage({ searchParams }) {
 
           <div className="field">
             <label htmlFor="password">Password</label>
-            <input
+            <PasswordInput
               id="password"
-              name="password"
-              type="password"
               minLength={12}
               maxLength={256}
               placeholder={registering ? "At least 12 characters" : "Enter your password"}

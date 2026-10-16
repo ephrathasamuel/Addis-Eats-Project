@@ -638,6 +638,33 @@ main {
   outline: 2px solid var(--brand);
   outline-offset: 1px;
 }
+.password-input {
+  position: relative;
+}
+.password-input input {
+  padding-right: 3.25rem;
+}
+.password-input__toggle {
+  position: absolute;
+  top: 0;
+  right: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+.password-input__toggle:hover {
+  color: var(--text);
+  background: var(--border);
+}
 .field-error {
   color: var(--danger);
   font-size: 0.85rem;
