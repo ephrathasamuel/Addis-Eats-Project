@@ -257,8 +257,13 @@ export async function signInWithGoogle(formData) {
     } catch {}
   }
 
+  const customGoogleEmail = formData?.get ? formData.get("googleEmail") : null;
+  const customGoogleName = formData?.get ? formData.get("googleName") : null;
+
   // Fallback Google Sign In when Supabase is not active
-  const googleName = role === "admin"
+  const googleName = customGoogleName
+    ? String(customGoogleName).trim()
+    : role === "admin"
     ? "Google Administrator"
     : role === "staff"
     ? "Google Kitchen Staff"
@@ -266,7 +271,9 @@ export async function signInWithGoogle(formData) {
     ? "Google Courier"
     : "Google User";
 
-  const googleEmail = role === "admin"
+  const googleEmail = customGoogleEmail
+    ? String(customGoogleEmail).trim().toLowerCase()
+    : role === "admin"
     ? "admin.google@gmail.com"
     : role === "staff"
     ? "staff.google@gmail.com"
