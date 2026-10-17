@@ -432,6 +432,7 @@ export async function updateMyProfileAction(formData) {
     photo,
   });
   if (!result.ok) return { ok: false, fieldErrors: result.fieldErrors, error: result.error };
+  await createSession(result.account);
   return { ok: true, user: toSessionUser(result.account) };
 }
 
@@ -465,7 +466,7 @@ export async function kitchenClaimAction({ orderIds, staffId, pin } = {}) {
     if (!check.ok) return { ok: false, error: check.error, pinError: true };
     cook = check.account;
   } else if (user.role === "staff") {
-    cook = getAccount(user.id);
+    cook = getAccount(user.id) || { id: user.id, name: user.name };
   } else {
     return { ok: false, error: "Pick the cook who is claiming these tickets." };
   }
