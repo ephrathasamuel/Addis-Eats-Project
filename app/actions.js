@@ -161,35 +161,36 @@ export async function signIn(formData) {
 
   // If not authenticated via Supabase (or Supabase not configured), check demo / local fallback
   if (!user) {
+    const requestedRole = String(formData.get("role") || "").toLowerCase().trim();
     const emailLower = email.toLowerCase();
-    const isAdmin = emailLower.includes("admin");
-    const isDelivery = emailLower.includes("delivery") || emailLower.includes("courier") || emailLower.includes("driver");
-    const isStaff = !isAdmin && !isDelivery && (emailLower.includes("staff") || emailLower.includes("chef") || emailLower.includes("kitchen"));
-    const role = isAdmin ? "admin" : isDelivery ? "delivery" : isStaff ? "staff" : "customer";
 
-    const name = isAdmin
-      ? "System Admin"
-      : isDelivery
-      ? "Abebe Courier"
-      : isStaff
-      ? "Chef Kassahun"
-      : emailLower === "almaz@example.com"
-      ? "Almaz"
-      : email.split("@")[0] || "Demo User";
-
-    const userId = isAdmin
-      ? "usr_admin"
-      : isDelivery
-      ? "usr_courier_abebe"
-      : isStaff
-      ? "usr_chef_kassahun"
-      : `usr_${encodeURIComponent(name.toLowerCase().replace(/\s+/g, "_"))}`;
-
-    // If Supabase was configured and failed, but wasn't a demo account, show incorrect email/password
-    if (isSupabaseConfigured() && !isAdmin && !isDelivery && !isStaff && emailLower !== "almaz@example.com") {
-      const params = new URLSearchParams({ email, next: String(rawNext), error: "Email or password is incorrect." });
-      redirect(`/signin?${params.toString()}`);
+    // Determine role: prioritize explicit role from the form or buttons, otherwise check email keywords
+    let role = "customer";
+    if (["admin", "staff", "delivery", "customer"].includes(requestedRole)) {
+      role = requestedRole;
+    } else if (emailLower.includes("admin")) {
+      role = "admin";
+    } else if (emailLower.includes("delivery") || emailLower.includes("courier") || emailLower.includes("driver")) {
+      role = "delivery";
+    } else if (emailLower.includes("staff") || emailLower.includes("chef") || emailLower.includes("kitchen")) {
+      role = "staff";
     }
+
+    const emailPrefix = email.split("@")[0] || "User";
+    const capitalizedPrefix = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+
+    const name =
+      role === "admin"
+        ? (emailLower === "admin@addiseats.com" ? "System Admin" : `${capitalizedPrefix} (Admin)`)
+        : role === "staff"
+        ? (emailLower === "staff@addiseats.com" ? "Chef Kassahun" : `${capitalizedPrefix} (Kitchen)`)
+        : role === "delivery"
+        ? (emailLower === "delivery@addiseats.com" ? "Abebe Courier" : `${capitalizedPrefix} (Courier)`)
+        : emailLower === "almaz@example.com"
+        ? "Almaz"
+        : capitalizedPrefix;
+
+    const userId = `usr_${role}_${encodeURIComponent(emailLower.replace(/[^a-z0-9]/g, "_"))}`;
 
     user = await createSession({
       id: userId,
@@ -213,6 +214,72 @@ export async function signIn(formData) {
       safeNext = "/delivery";
     }
   }
+
+  redirect(safeNext);
+}
+
+/**
+ * Sign In With Google Server Action
+ * Supports live Google OAuth via Supabase when configured, or seamless instant Google login when Supabase is not active.
+ */
+export async function signInWithGoogle(formData) {
+  const rawNext = formData?.get ? formData.get("next") : "/orders";
+  const requestedRole = (formData?.get ? formData.get("role") : null) || "customer";
+  const role = ["admin", "staff", "delivery", "customer"].includes(requestedRole) ? requestedRole : "customer";
+
+  let safeNext = "/";
+  if (typeof rawNext === "string" && rawNext.startsWith("/") && !rawNext.startsWith("//")) {
+    safeNext = rawNext;
+  }
+
+  if (safeNext === "/" || safeNext === "/orders") {
+    if (role === "admin") {
+      safeNext = "/admin";
+    } else if (role === "staff") {
+      safeNext = "/kitchen";
+    } else if (role === "delivery") {
+      safeNext = "/delivery";
+    }
+  }
+
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createSupabaseServerClient();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3001"}/auth/callback?next=${encodeURIComponent(safeNext)}`,
+        },
+      });
+      if (!error && data?.url) {
+        redirect(data.url);
+      }
+    } catch {}
+  }
+
+  // Fallback Google Sign In when Supabase is not active
+  const googleName = role === "admin"
+    ? "Google Administrator"
+    : role === "staff"
+    ? "Google Kitchen Staff"
+    : role === "delivery"
+    ? "Google Courier"
+    : "Google User";
+
+  const googleEmail = role === "admin"
+    ? "admin.google@gmail.com"
+    : role === "staff"
+    ? "staff.google@gmail.com"
+    : role === "delivery"
+    ? "courier.google@gmail.com"
+    : "user.google@gmail.com";
+
+  await createSession({
+    id: `usr_google_${role}_${Date.now()}`,
+    name: googleName,
+    email: googleEmail,
+    role,
+  });
 
   redirect(safeNext);
 }

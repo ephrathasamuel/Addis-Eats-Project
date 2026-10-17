@@ -1,36 +1,25 @@
-import { signIn, signUp } from "@/app/actions";
+import { signIn, signUp, signInWithGoogle } from "@/app/actions";
 import Link from "next/link";
 import PasswordInput from "@/components/PasswordInput";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export default async function SignInPage({ searchParams }) {
   const params = await searchParams;
   const next = params?.next || "/orders";
   const registering = params?.mode === "register";
-  const supabaseConnected = isSupabaseConfigured();
 
-  const isKitchen = Boolean(next && next.includes("/kitchen"));
-  const isAdmin = Boolean(next && next.includes("/admin")) || params?.admin === "true";
-  const isDelivery = Boolean(next && next.includes("/delivery"));
-
-  const defaultEmail = isAdmin
-    ? "admin@addiseats.com"
-    : isDelivery
-    ? "delivery@addiseats.com"
-    : isKitchen
-    ? "staff@addiseats.com"
-    : "almaz@example.com";
-
-  const email = params?.email !== undefined ? params.email : (!registering ? defaultEmail : "");
-  const emailLower = email.toLowerCase();
-
-  const selectedRole = emailLower.includes("admin")
+  // Determine role: prioritize explicit role query param, or destination-based role
+  const explicitRole = params?.role;
+  const destinationRole = next.includes("/admin")
     ? "admin"
-    : emailLower.includes("delivery") || emailLower.includes("courier")
-    ? "delivery"
-    : emailLower.includes("staff") || emailLower.includes("chef")
+    : next.includes("/kitchen")
     ? "staff"
+    : next.includes("/delivery")
+    ? "delivery"
     : "customer";
+
+  const selectedRole = ["admin", "staff", "delivery", "customer"].includes(explicitRole)
+    ? explicitRole
+    : destinationRole;
 
   let fieldErrors = {};
   try {
@@ -55,99 +44,88 @@ export default async function SignInPage({ searchParams }) {
             : "Sign in to your Addis Eats account"}
         </p>
 
-        {!supabaseConnected && !registering && (
-          <div
-            style={{
-              padding: "0.55rem 0.75rem",
-              marginBottom: "1rem",
-              background: "rgba(234, 88, 12, 0.08)",
-              border: "1px solid rgba(234, 88, 12, 0.25)",
-              borderRadius: "10px",
-              fontSize: "0.8rem",
-              color: "var(--text)",
-              lineHeight: 1.4,
-            }}
-          >
-            <strong>Local Demo Active:</strong> Supabase is not connected yet. Click any role button below to sign in instantly.
-          </div>
-        )}
-
-        {/* Quick Role Switcher Chips */}
+        {/* Role Selector Chips: allows logging into any role with ANY email */}
         {!registering && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.45rem", marginBottom: "1.25rem" }}>
-            <Link
-              href={`/signin?next=${encodeURIComponent(next.includes("/admin") ? next : "/admin")}&email=admin%40addiseats.com`}
-              className="btn-secondary"
-              style={{
-                padding: "0.45rem 0.5rem",
-                textAlign: "center",
-                fontSize: "0.78rem",
-                textDecoration: "none",
-                borderRadius: "10px",
-                backgroundColor: selectedRole === "admin" ? "var(--brand)" : "transparent",
-                color: selectedRole === "admin" ? "#fff" : "var(--text)",
-                border: "1px solid var(--border)",
-                fontWeight: selectedRole === "admin" ? "750" : "500",
-              }}
-            >
-              Admin Panel
-            </Link>
-            <Link
-              href={`/signin?next=${encodeURIComponent(next.includes("/kitchen") ? next : "/kitchen")}&email=staff%40addiseats.com`}
-              className="btn-secondary"
-              style={{
-                padding: "0.45rem 0.5rem",
-                textAlign: "center",
-                fontSize: "0.78rem",
-                textDecoration: "none",
-                borderRadius: "10px",
-                backgroundColor: selectedRole === "staff" ? "var(--brand)" : "transparent",
-                color: selectedRole === "staff" ? "#fff" : "var(--text)",
-                border: "1px solid var(--border)",
-                fontWeight: selectedRole === "staff" ? "750" : "500",
-              }}
-            >
-              Kitchen Staff
-            </Link>
-            <Link
-              href={`/signin?next=${encodeURIComponent(next.includes("/delivery") ? next : "/delivery")}&email=delivery%40addiseats.com`}
-              className="btn-secondary"
-              style={{
-                padding: "0.45rem 0.5rem",
-                textAlign: "center",
-                fontSize: "0.78rem",
-                textDecoration: "none",
-                borderRadius: "10px",
-                backgroundColor: selectedRole === "delivery" ? "var(--brand)" : "transparent",
-                color: selectedRole === "delivery" ? "#fff" : "var(--text)",
-                border: "1px solid var(--border)",
-                fontWeight: selectedRole === "delivery" ? "750" : "500",
-              }}
-            >
-              Delivery Courier
-            </Link>
-            <Link
-              href={`/signin?next=${encodeURIComponent(next.includes("/orders") ? next : "/orders")}&email=almaz%40example.com`}
-              className="btn-secondary"
-              style={{
-                padding: "0.45rem 0.5rem",
-                textAlign: "center",
-                fontSize: "0.78rem",
-                textDecoration: "none",
-                borderRadius: "10px",
-                backgroundColor: selectedRole === "customer" ? "var(--brand)" : "transparent",
-                color: selectedRole === "customer" ? "#fff" : "var(--text)",
-                border: "1px solid var(--border)",
-                fontWeight: selectedRole === "customer" ? "750" : "500",
-              }}
-            >
-              Customer Demo
-            </Link>
+          <div style={{ marginBottom: "1.25rem" }}>
+            <div style={{ fontSize: "0.78rem", fontWeight: "650", color: "var(--muted)", marginBottom: "0.4rem" }}>
+              Select Sign In Portal:
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.45rem" }}>
+              <Link
+                href={`/signin?role=admin&next=${encodeURIComponent(next.includes("/admin") ? next : "/admin")}`}
+                className="btn-secondary"
+                style={{
+                  padding: "0.5rem",
+                  textAlign: "center",
+                  fontSize: "0.8rem",
+                  textDecoration: "none",
+                  borderRadius: "10px",
+                  backgroundColor: selectedRole === "admin" ? "var(--brand)" : "transparent",
+                  color: selectedRole === "admin" ? "#fff" : "var(--text)",
+                  border: "1px solid var(--border)",
+                  fontWeight: selectedRole === "admin" ? "750" : "500",
+                }}
+              >
+                Admin Panel
+              </Link>
+              <Link
+                href={`/signin?role=staff&next=${encodeURIComponent(next.includes("/kitchen") ? next : "/kitchen")}`}
+                className="btn-secondary"
+                style={{
+                  padding: "0.5rem",
+                  textAlign: "center",
+                  fontSize: "0.8rem",
+                  textDecoration: "none",
+                  borderRadius: "10px",
+                  backgroundColor: selectedRole === "staff" ? "var(--brand)" : "transparent",
+                  color: selectedRole === "staff" ? "#fff" : "var(--text)",
+                  border: "1px solid var(--border)",
+                  fontWeight: selectedRole === "staff" ? "750" : "500",
+                }}
+              >
+                Kitchen Staff
+              </Link>
+              <Link
+                href={`/signin?role=delivery&next=${encodeURIComponent(next.includes("/delivery") ? next : "/delivery")}`}
+                className="btn-secondary"
+                style={{
+                  padding: "0.5rem",
+                  textAlign: "center",
+                  fontSize: "0.8rem",
+                  textDecoration: "none",
+                  borderRadius: "10px",
+                  backgroundColor: selectedRole === "delivery" ? "var(--brand)" : "transparent",
+                  color: selectedRole === "delivery" ? "#fff" : "var(--text)",
+                  border: "1px solid var(--border)",
+                  fontWeight: selectedRole === "delivery" ? "750" : "500",
+                }}
+              >
+                Delivery Courier
+              </Link>
+              <Link
+                href={`/signin?role=customer&next=${encodeURIComponent(next.includes("/orders") ? next : "/orders")}`}
+                className="btn-secondary"
+                style={{
+                  padding: "0.5rem",
+                  textAlign: "center",
+                  fontSize: "0.8rem",
+                  textDecoration: "none",
+                  borderRadius: "10px",
+                  backgroundColor: selectedRole === "customer" ? "var(--brand)" : "transparent",
+                  color: selectedRole === "customer" ? "#fff" : "var(--text)",
+                  border: "1px solid var(--border)",
+                  fontWeight: selectedRole === "customer" ? "750" : "500",
+                }}
+              >
+                Customer Portal
+              </Link>
+            </div>
           </div>
         )}
 
-        <form action={registering ? signUp : signIn} key={`${email}-${registering}`}>
+        <form action={registering ? signUp : signIn} key={`${selectedRole}-${registering}`}>
           <input type="hidden" name="next" value={next} />
+          <input type="hidden" name="role" value={selectedRole} />
 
           {registering && (
             <div className="field">
@@ -165,13 +143,23 @@ export default async function SignInPage({ searchParams }) {
           )}
 
           <div className="field">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">
+              {registering
+                ? "Email"
+                : selectedRole === "admin"
+                ? "Admin Email (any email address)"
+                : selectedRole === "staff"
+                ? "Kitchen Staff Email (any email address)"
+                : selectedRole === "delivery"
+                ? "Courier Email (any email address)"
+                : "Email"}
+            </label>
             <input
               id="email"
               name="email"
               type="email"
-              defaultValue={email}
-              placeholder="Enter your email"
+              defaultValue={params?.email || ""}
+              placeholder="name@example.com"
               required
               autoComplete="email"
             />
@@ -182,10 +170,7 @@ export default async function SignInPage({ searchParams }) {
             <label htmlFor="password">Password</label>
             <PasswordInput
               id="password"
-              minLength={6}
-              maxLength={256}
-              defaultValue="password123"
-              placeholder={registering ? "At least 6 characters" : "Enter your password"}
+              placeholder="Enter your password"
               required
               autoComplete={registering ? "new-password" : "current-password"}
             />
@@ -203,42 +188,73 @@ export default async function SignInPage({ searchParams }) {
             {registering
               ? "Create customer account"
               : selectedRole === "admin"
-              ? "Sign in to Admin Panel"
+              ? "Sign in as Restaurant Admin"
               : selectedRole === "staff"
-              ? "Sign in to Kitchen Portal"
+              ? "Sign in as Kitchen Staff"
               : selectedRole === "delivery"
-              ? "Sign in to Courier Portal"
+              ? "Sign in as Delivery Courier"
               : "Sign in to Addis Eats"}
           </button>
         </form>
 
-        <p className="auth-subtitle" style={{ marginTop: "1rem" }}>
+        {/* Google Authentication Option */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", margin: "1.25rem 0 0.85rem" }}>
+          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+          <span style={{ fontSize: "0.76rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            or continue with
+          </span>
+          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+        </div>
+
+        <form action={signInWithGoogle}>
+          <input type="hidden" name="next" value={next} />
+          <input type="hidden" name="role" value={selectedRole} />
+          <button
+            type="submit"
+            className="btn-secondary btn-block"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.6rem",
+              width: "100%",
+              padding: "0.65rem 1rem",
+              borderRadius: "12px",
+              fontSize: "0.92rem",
+              fontWeight: "600",
+              backgroundColor: "var(--card-bg)",
+              border: "1px solid var(--border)",
+              cursor: "pointer",
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="#4285F4"
+                d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+              />
+            </svg>
+            <span>Continue with Google</span>
+          </button>
+        </form>
+
+        <p className="auth-subtitle" style={{ marginTop: "1.1rem" }}>
           {registering ? "Already have an account?" : "New to Addis Eats?"}{" "}
           <Link href={registering ? `/signin?next=${encodeURIComponent(next)}` : `/signin?mode=register&next=${encodeURIComponent(next)}`}>
             {registering ? "Sign in" : "Create a customer account"}
           </Link>
         </p>
-
-        {!registering && (
-          <div
-            style={{
-              marginTop: "1.25rem",
-              padding: "0.75rem",
-              background: "var(--brand-light)",
-              borderRadius: "12px",
-              fontSize: "0.8rem",
-              color: "var(--text)",
-            }}
-          >
-            <strong>Test Accounts Guide:</strong>
-            <ul style={{ margin: "0.35rem 0 0", paddingLeft: "1.2rem", lineHeight: "1.5" }}>
-              <li><strong>Admin Panel:</strong> <code>admin@addiseats.com</code> (Inventory, Finances, Orders)</li>
-              <li><strong>Kitchen Staff:</strong> <code>staff@addiseats.com</code> (Preparation queue)</li>
-              <li><strong>Delivery Courier:</strong> <code>delivery@addiseats.com</code> (Pickups and deliveries)</li>
-              <li><strong>Customer:</strong> <code>almaz@example.com</code> (Personal orders &amp; tracking)</li>
-            </ul>
-          </div>
-        )}
       </div>
     </div>
   );
