@@ -364,7 +364,16 @@ export async function signUp(formData) {
       result = { error: new Error("unavailable") };
     }
     if (result.error) {
-      back("Account creation failed. The email may already be registered, or sign-up is disabled in Supabase.");
+      const messages = {
+        email_address_invalid: "That email address was rejected. Please use a real email address.",
+        user_already_exists: "An account with this email already exists. Sign in instead.",
+        email_exists: "An account with this email already exists. Sign in instead.",
+        weak_password: "That password is too weak. Use at least 8 characters with letters and numbers.",
+        over_email_send_rate_limit: "Too many sign-ups right now. Please wait a few minutes and try again.",
+        over_request_rate_limit: "Too many attempts. Please wait a few minutes and try again.",
+        signup_disabled: "New sign-ups are currently turned off.",
+      };
+      back(messages[result.error.code] || "Account creation failed. Please try again in a moment.");
     }
     if (!result.data?.session) {
       redirect(`/signin?registered=1&email=${encodeURIComponent(email)}`);

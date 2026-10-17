@@ -2734,3 +2734,46 @@ button:active:not(:disabled),
   font-size: 1.1rem;
 }
 .checkout-total-row strong { font-size: 1.25rem; color: var(--brand-dark); }
+
+/* Order page actions: one even row (2x2 on phones) */
+.order-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+.order-actions--four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.order-actions > a,
+.order-actions > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.86rem;
+  font-weight: 650;
+  white-space: nowrap;
+  text-align: center;
+  text-decoration: none;
+}
+.cancel-request-btn {
+  border-radius: 980px;
+  border: 1px solid var(--danger);
+  background: rgba(209, 67, 91, 0.1);
+  color: var(--danger);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.cancel-request-btn:hover {
+  background: var(--danger);
+  color: #fff;
+}
+@media (max-width: 600px) {
+  .order-actions,
+  .order-actions--four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
