@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { parseDeliveryCoordinates } from "@/lib/validation";
 import { updateCourierLocation } from "@/lib/orders";
 import { getSession } from "@/lib/session";
+import { flushData } from "@/lib/datastore";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,7 @@ export async function POST(request, { params }) {
     );
   }
 
+  await flushData();
   return NextResponse.json({ ok: true }, {
     headers: { "Cache-Control": "no-store" },
   });

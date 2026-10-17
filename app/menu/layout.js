@@ -6,8 +6,8 @@ import { CategoryBar } from "@/components/CategoryBar";
 // page.js, so navigating to a dish does not remount it.
 // CategoryBar reads useSearchParams(), so it needs its own Suspense boundary
 // or the static /menu/[id] pages would be forced into dynamic rendering.
-export default function MenuLayout({ children }) {
-  const categories = getCategories();
+export default async function MenuLayout({ children }) {
+  const categories = await getCategories();
 
   return (
     <div className="menu-layout">

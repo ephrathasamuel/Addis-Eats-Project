@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { normalizeEthiopianPhone, parseDeliveryCoordinates, validateOrder } from "@/lib/validation";
 import { createOrder, priceOrderItems, toOrderClientData } from "@/lib/orders";
 import { getSession } from "@/lib/session";
+import { flushData } from "@/lib/datastore";
 
 // The API shares checkout validation and only creates orders for the signed-in customer.
 // Prices and fees are recomputed from the live menu; client-sent prices are ignored.
@@ -54,6 +55,7 @@ export async function POST(request) {
     deliveryCoordinates,
   });
 
+  await flushData();
   return NextResponse.json(toOrderClientData(order), {
     status: 201,
     headers: { "Cache-Control": "private, no-store" },

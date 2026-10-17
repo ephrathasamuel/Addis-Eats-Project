@@ -53,6 +53,7 @@ import {
 } from "@/lib/dishes";
 import { resolveImageInput } from "@/lib/media";
 import { addDailyExpense } from "@/lib/finances";
+import { flushData, syncData } from "@/lib/datastore";
 import { getKitchenSnapshot } from "@/lib/kitchen";
 
 // ---------------------------------------------------------------------------
@@ -124,7 +125,7 @@ function revalidateMenu(dishId) {
  * problems, or redirects to the confirmation page on success. Prices and
  * fees are recomputed on the server from the live menu.
  */
-export async function placeOrder(formData) {
+async function placeOrderImpl(formData) {
   const session = await getSession();
   if (!session) {
     return { ok: false, error: "Your session expired. Please sign in again.", signIn: true };
@@ -182,7 +183,7 @@ export async function placeOrder(formData) {
   redirect(`/checkout/confirmation?order=${order.id}`);
 }
 
-export async function cancelOrder(orderId) {
+async function cancelOrderImpl(orderId) {
   const user = await getSession();
   if (!user) {
     return { ok: false, status: 401, error: "Authentication required." };
@@ -197,7 +198,7 @@ export async function cancelOrder(orderId) {
   return res.ok ? { ok: true } : res;
 }
 
-export async function confirmDeliveryAction(orderId) {
+async function confirmDeliveryActionImpl(orderId) {
   const user = await getSession();
   if (!user) return { ok: false, status: 401, error: "Authentication required." };
   if (user.role !== "customer") {
@@ -211,7 +212,7 @@ export async function confirmDeliveryAction(orderId) {
   return { ok: true };
 }
 
-export async function submitOrderReviewAction(formData) {
+async function submitOrderReviewActionImpl(formData) {
   const orderId = formData.get("orderId");
   const rating = formData.get("rating");
   const comment = formData.get("comment");
@@ -250,7 +251,7 @@ export async function submitOrderReviewAction(formData) {
  * Email + password sign-in for everyone. Staff and admin accounts live in the
  * local account store; customers use Supabase when it is configured.
  */
-export async function signIn(formData) {
+async function signInImpl(formData) {
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
   const rawNext = formData.get("next") || "";
@@ -300,7 +301,7 @@ export async function signIn(formData) {
  * Google sign-in through Supabase OAuth. Google shows its own account chooser
  * (prompt=select_account), and the profile name comes from the Google account.
  */
-export async function signInWithGoogle(formData) {
+async function signInWithGoogleImpl(formData) {
   const next = safePath(formData?.get?.("next"), "/menu");
   if (!isSupabaseConfigured()) {
     redirect(signInUrl({ next, error: "Google sign-in is not configured on this server." }));
@@ -332,7 +333,7 @@ export async function signInWithGoogle(formData) {
 /**
  * Customer self-registration. Staff accounts cannot be created here.
  */
-export async function signUp(formData) {
+async function signUpImpl(formData) {
   const name = String(formData.get("name") || "").trim();
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
@@ -387,7 +388,7 @@ export async function signUp(formData) {
   redirect(destination);
 }
 
-export async function signOut() {
+async function signOutImpl() {
   await clearSession();
   redirect("/");
 }
@@ -396,7 +397,7 @@ export async function signOut() {
 // Profile (every signed-in user)
 // ---------------------------------------------------------------------------
 
-export async function changePasswordAction(formData) {
+async function changePasswordActionImpl(formData) {
   const user = await getSession();
   if (!user) return { ok: false, error: "Please sign in again." };
   const currentPassword = String(formData.get("currentPassword") || "");
@@ -425,7 +426,7 @@ export async function changePasswordAction(formData) {
   return { ok: true };
 }
 
-export async function updateMyProfileAction(formData) {
+async function updateMyProfileActionImpl(formData) {
   const user = await getSession();
   if (!user || user.provider !== "local") return { ok: false, error: "Profile details cannot be edited for this account." };
   const photoInput = formData.get("photo");
@@ -445,7 +446,7 @@ export async function updateMyProfileAction(formData) {
   return { ok: true, user: toSessionUser(result.account) };
 }
 
-export async function changeMyPinAction(formData) {
+async function changeMyPinActionImpl(formData) {
   const user = await requireRole("staff");
   if (!user) return { ok: false, error: "Only kitchen staff have PINs." };
   const result = authenticate(user.email, String(formData.get("currentPassword") || ""));
@@ -463,7 +464,7 @@ export async function changeMyPinAction(formData) {
  * - Shared kitchen tablet: pass { staffId, pin }; the cook who owns that PIN
  *   gets the credit, so nobody has to sign out and back in.
  */
-export async function kitchenClaimAction({ orderIds, staffId, pin } = {}) {
+async function kitchenClaimActionImpl({ orderIds, staffId, pin } = {}) {
   const user = await requireRole("staff", "admin");
   if (!user) return { ok: false, error: "Kitchen staff sign-in required." };
   const ids = Array.isArray(orderIds) ? orderIds.slice(0, 50).map(String) : [];
@@ -484,7 +485,7 @@ export async function kitchenClaimAction({ orderIds, staffId, pin } = {}) {
   return { ok: true, cook: { id: cook.id, name: cook.name }, results, snapshot: getKitchenSnapshot() };
 }
 
-export async function kitchenReadyAction(orderIds) {
+async function kitchenReadyActionImpl(orderIds) {
   const user = await requireRole("staff", "admin");
   if (!user) return { ok: false, error: "Kitchen staff sign-in required." };
   const ids = (Array.isArray(orderIds) ? orderIds : [orderIds]).slice(0, 50).map(String);
@@ -492,7 +493,7 @@ export async function kitchenReadyAction(orderIds) {
   return { ok: true, results, snapshot: getKitchenSnapshot() };
 }
 
-export async function kitchenReleaseAction(orderId) {
+async function kitchenReleaseActionImpl(orderId) {
   const user = await requireRole("staff", "admin");
   if (!user) return { ok: false, error: "Kitchen staff sign-in required." };
   const result = releaseKitchenOrder(orderId);
@@ -502,7 +503,7 @@ export async function kitchenReleaseAction(orderId) {
 /**
  * Kitchen staff and admins can mark dishes sold out / available.
  */
-export async function setDishSoldOutAction(dishId, isSoldOut) {
+async function setDishSoldOutActionImpl(dishId, isSoldOut) {
   const user = await requireRole("staff", "admin");
   if (!user) return { ok: false, error: "Only kitchen staff or admins can change availability." };
   const dish = setDishSoldOut(String(dishId), typeof isSoldOut === "boolean" ? isSoldOut : undefined);
@@ -512,7 +513,7 @@ export async function setDishSoldOutAction(dishId, isSoldOut) {
 }
 
 // Kept for the admin inventory list.
-export async function toggleSoldOutAction(dishId) {
+async function toggleSoldOutActionImpl(dishId) {
   return setDishSoldOutAction(dishId);
 }
 
@@ -520,14 +521,14 @@ export async function toggleSoldOutAction(dishId) {
 // Delivery
 // ---------------------------------------------------------------------------
 
-export async function claimAndStartDeliveryAction(orderId) {
+async function claimAndStartDeliveryActionImpl(orderId) {
   const user = await requireRole("delivery");
   if (!user) return { ok: false, error: "A courier account is required to claim orders." };
   const res = claimAndStartDelivery(orderId, user);
   return { ...res, order: undefined, orders: getDeliveryOrdersFor(user.id) };
 }
 
-export async function completeDeliveryAction(orderId) {
+async function completeDeliveryActionImpl(orderId) {
   const user = await requireRole("delivery");
   if (!user) return { ok: false, error: "Only the assigned courier can mark an order delivered." };
   const res = completeDelivery(orderId, user.id);
@@ -558,7 +559,7 @@ function validateDish(dish) {
   return null;
 }
 
-export async function addDishAction(formData) {
+async function addDishActionImpl(formData) {
   if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
   const input = readDishForm(formData);
   const error = validateDish(input);
@@ -571,7 +572,7 @@ export async function addDishAction(formData) {
   return { ok: true, dish: newDish };
 }
 
-export async function editDishAction(formData) {
+async function editDishActionImpl(formData) {
   if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
   const id = String(formData.get("id") || "");
   if (!id) return { ok: false, error: "Dish ID is missing." };
@@ -587,14 +588,14 @@ export async function editDishAction(formData) {
   return { ok: true, dish: updated };
 }
 
-export async function removeDishAction(dishId) {
+async function removeDishActionImpl(dishId) {
   if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
   if (!removeDish(dishId)) return { ok: false, error: "Dish not found." };
   revalidateMenu(dishId);
   return { ok: true, isRemoved: true };
 }
 
-export async function restoreDishAction(dishId) {
+async function restoreDishActionImpl(dishId) {
   if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
   if (!restoreDish(dishId)) return { ok: false, error: "Dish not found." };
   revalidateMenu(dishId);
@@ -605,7 +606,7 @@ export async function restoreDishAction(dishId) {
 // Admin: finances and orders
 // ---------------------------------------------------------------------------
 
-export async function addDailyExpenseAction(formData) {
+async function addDailyExpenseActionImpl(formData) {
   if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
   const date = String(formData.get("date") || "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: "Date is required." };
@@ -621,7 +622,7 @@ export async function addDailyExpenseAction(formData) {
   return { ok: true, record };
 }
 
-export async function adminEditOrderAction(formData) {
+async function adminEditOrderActionImpl(formData) {
   const user = await requireRole("admin");
   if (!user) return { ok: false, error: "Administrator permissions required." };
   const id = formData.get("id");
@@ -639,7 +640,7 @@ export async function adminEditOrderAction(formData) {
 // Admin: staff accounts
 // ---------------------------------------------------------------------------
 
-export async function createStaffAction(formData) {
+async function createStaffActionImpl(formData) {
   if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
   const role = String(formData.get("role") || "");
   let photo = "";
@@ -668,23 +669,151 @@ function getStaffAccount(staffId) {
   return account && STAFF_ROLES.includes(account.role) ? account : null;
 }
 
-export async function resetStaffPasswordAction(staffId, newPassword) {
+async function resetStaffPasswordActionImpl(staffId, newPassword) {
   if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
   if (!getStaffAccount(staffId)) return { ok: false, error: "Staff member not found." };
   const result = setPassword(staffId, String(newPassword || ""));
   return result.ok ? { ok: true } : result;
 }
 
-export async function resetStaffPinAction(staffId, pin) {
+async function resetStaffPinActionImpl(staffId, pin) {
   if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
   if (!getStaffAccount(staffId)) return { ok: false, error: "Staff member not found." };
   return setPin(staffId, String(pin || ""));
 }
 
-export async function removeStaffAction(staffId) {
+async function removeStaffActionImpl(staffId) {
   if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
   if (!getStaffAccount(staffId)) return { ok: false, error: "Staff member not found." };
   const result = removeAccount(staffId);
   revalidatePath("/admin/staff");
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Exported actions
+// ---------------------------------------------------------------------------
+
+// Every action reads the latest shared data first and finishes saving its
+// changes before it returns or redirects, so the next request (possibly on
+// another server instance) sees them.
+async function withData(run) {
+  await syncData();
+  try {
+    return await run();
+  } finally {
+    await flushData();
+  }
+}
+
+export async function placeOrder(...args) {
+  return withData(() => placeOrderImpl(...args));
+}
+
+export async function cancelOrder(...args) {
+  return withData(() => cancelOrderImpl(...args));
+}
+
+export async function confirmDeliveryAction(...args) {
+  return withData(() => confirmDeliveryActionImpl(...args));
+}
+
+export async function submitOrderReviewAction(...args) {
+  return withData(() => submitOrderReviewActionImpl(...args));
+}
+
+export async function signIn(...args) {
+  return withData(() => signInImpl(...args));
+}
+
+export async function signInWithGoogle(...args) {
+  return withData(() => signInWithGoogleImpl(...args));
+}
+
+export async function signUp(...args) {
+  return withData(() => signUpImpl(...args));
+}
+
+export async function signOut(...args) {
+  return withData(() => signOutImpl(...args));
+}
+
+export async function changePasswordAction(...args) {
+  return withData(() => changePasswordActionImpl(...args));
+}
+
+export async function updateMyProfileAction(...args) {
+  return withData(() => updateMyProfileActionImpl(...args));
+}
+
+export async function changeMyPinAction(...args) {
+  return withData(() => changeMyPinActionImpl(...args));
+}
+
+export async function kitchenClaimAction(...args) {
+  return withData(() => kitchenClaimActionImpl(...args));
+}
+
+export async function kitchenReadyAction(...args) {
+  return withData(() => kitchenReadyActionImpl(...args));
+}
+
+export async function kitchenReleaseAction(...args) {
+  return withData(() => kitchenReleaseActionImpl(...args));
+}
+
+export async function setDishSoldOutAction(...args) {
+  return withData(() => setDishSoldOutActionImpl(...args));
+}
+
+export async function toggleSoldOutAction(...args) {
+  return withData(() => toggleSoldOutActionImpl(...args));
+}
+
+export async function claimAndStartDeliveryAction(...args) {
+  return withData(() => claimAndStartDeliveryActionImpl(...args));
+}
+
+export async function completeDeliveryAction(...args) {
+  return withData(() => completeDeliveryActionImpl(...args));
+}
+
+export async function addDishAction(...args) {
+  return withData(() => addDishActionImpl(...args));
+}
+
+export async function editDishAction(...args) {
+  return withData(() => editDishActionImpl(...args));
+}
+
+export async function removeDishAction(...args) {
+  return withData(() => removeDishActionImpl(...args));
+}
+
+export async function restoreDishAction(...args) {
+  return withData(() => restoreDishActionImpl(...args));
+}
+
+export async function addDailyExpenseAction(...args) {
+  return withData(() => addDailyExpenseActionImpl(...args));
+}
+
+export async function adminEditOrderAction(...args) {
+  return withData(() => adminEditOrderActionImpl(...args));
+}
+
+export async function createStaffAction(...args) {
+  return withData(() => createStaffActionImpl(...args));
+}
+
+export async function resetStaffPasswordAction(...args) {
+  return withData(() => resetStaffPasswordActionImpl(...args));
+}
+
+export async function resetStaffPinAction(...args) {
+  return withData(() => resetStaffPinActionImpl(...args));
+}
+
+export async function removeStaffAction(...args) {
+  return withData(() => removeStaffActionImpl(...args));
 }

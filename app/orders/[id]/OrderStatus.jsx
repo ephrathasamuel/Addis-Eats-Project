@@ -139,6 +139,8 @@ export function OrderStatus({ id, initial }) {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          flexWrap: "wrap",
+          gap: "0.85rem",
         }}
       >
         <div>
