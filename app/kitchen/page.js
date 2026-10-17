@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { getKitchenOrdersFor } from "@/lib/orders";
+import { getKitchenSnapshot } from "@/lib/kitchen";
 import { KitchenBoard } from "./KitchenBoard";
 
 export const dynamic = "force-dynamic";
 
+export const metadata = {
+  title: "Kitchen",
+  robots: { index: false },
+};
+
 export default async function KitchenPage() {
-  // Layer 2: Server-side role check
   const user = await getSession();
 
   if (!user) {
@@ -16,48 +20,31 @@ export default async function KitchenPage() {
 
   if (user.role !== "staff" && user.role !== "admin") {
     return (
-      <main style={{ maxWidth: "620px", margin: "4rem auto", textAlign: "center", padding: "0 1.5rem" }}>
-        <h1>403 Forbidden</h1>
-        <p style={{ color: "var(--muted)", margin: "1rem 0 1.5rem", lineHeight: 1.6 }}>
-          Access to the kitchen dashboard is restricted to staff members and administrators. You are currently signed in as <strong>{user.name}</strong> (<code>{user.role}</code> role).
+      <div className="empty-state" style={{ maxWidth: "620px", margin: "4rem auto" }}>
+        <h1>Kitchen staff only</h1>
+        <p>
+          The kitchen board is for restaurant staff. You are signed in as <strong>{user.name}</strong>.
         </p>
-        <div style={{ display: "flex", gap: "0.85rem", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link href="/" className="btn-secondary">
-            Return Home
-          </Link>
-        </div>
-      </main>
+        <Link href="/menu" className="btn-secondary">
+          Back to the menu
+        </Link>
+      </div>
     );
   }
 
-  const orders = getKitchenOrdersFor(user.id, user.role === "admin");
-
   return (
-    <main style={{ maxWidth: "1040px", margin: "2rem auto", padding: "0 1.5rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
+    <div className="page-wide">
+      <div className="page-heading">
         <div>
-          <h1 style={{ margin: "0 0 0.25rem" }}>Kitchen Order Queue</h1>
-          <p style={{ margin: 0, color: "var(--muted)" }}>
-            Fulfillment queue: track preparation and dispatch to delivery couriers
-          </p>
+          <h1>Kitchen</h1>
+          <p>Claim tickets, cook, and mark them ready. Updates appear automatically.</p>
         </div>
-        <span
-          style={{
-            fontSize: "0.82rem",
-            fontWeight: "700",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-            padding: "0.35rem 0.9rem",
-            borderRadius: "999px",
-            backgroundColor: user.role === "admin" ? "var(--brand)" : "#2e7d32",
-            color: "white",
-          }}
-        >
-          {user.role === "admin" ? "Admin Monitoring" : "Staff Portal"}
-        </span>
+        <span className={`role-pill role-pill--${user.role}`}>{user.role === "admin" ? "Admin view" : user.name}</span>
       </div>
-
-      <KitchenBoard initialOrders={orders} isAdmin={user.role === "admin"} />
-    </main>
+      <KitchenBoard
+        initialSnapshot={getKitchenSnapshot()}
+        viewer={{ id: user.id, name: user.name, role: user.role }}
+      />
+    </div>
   );
 }

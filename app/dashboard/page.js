@@ -26,7 +26,7 @@ export default async function DashboardPage() {
   } = getDashboardMetrics();
 
   return (
-    <div style={{ maxWidth: "1040px", margin: "2rem auto", padding: "0 1.5rem" }}>
+    <div className="page-wide">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
         <div>
           <h1 style={{ margin: "0 0 0.25rem" }}>Business Intelligence Dashboard</h1>

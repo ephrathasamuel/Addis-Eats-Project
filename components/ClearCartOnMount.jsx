@@ -3,20 +3,15 @@
 import { useEffect } from "react";
 import { useCart } from "@/components/Providers";
 
+// Empties the cart once after a successful order. Runs a single time on mount:
+// re-running whenever the cart context changed is what used to send the
+// confirmation page into an endless render loop.
 export function ClearCartOnMount() {
-  const { clearCart } = useCart();
+  const { clearCart, hydrated } = useCart();
 
   useEffect(() => {
-    try {
-      if (typeof clearCart === "function") {
-        clearCart();
-      }
-      if (typeof window !== "undefined") {
-        window.localStorage.removeItem("addis_cart");
-        window.localStorage.removeItem("addis-cart");
-      }
-    } catch {}
-  }, [clearCart]);
+    if (hydrated) clearCart();
+  }, [hydrated, clearCart]);
 
   return null;
 }

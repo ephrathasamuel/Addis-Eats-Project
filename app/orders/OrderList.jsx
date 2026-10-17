@@ -1,6 +1,5 @@
 "use client";
 
-import { getDishByIdSync, getDishByNameSync } from "@/lib/dishes";
 import Link from "next/link";
 import { cancelOrder } from "@/app/actions";
 import { useState } from "react";
@@ -103,8 +102,7 @@ export function OrderList({ orders }) {
 
             <div className="profile-cart-list" style={{ margin: "1rem 0" }}>
               {order.items?.map((item, idx) => {
-                const dish = getDishByIdSync(item.id) || getDishByNameSync(item.name);
-                const imgSrc = item.image || dish?.image || "/images/food/doro-wat.jpg";
+                const imgSrc = item.image || "/images/food/hero-feast.jpg";
                 return (
                   <div className="order-item-card" key={idx}>
                     <div className="order-item-media">

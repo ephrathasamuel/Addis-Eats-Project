@@ -9,7 +9,7 @@ export async function DishList({ category, page = 1 }) {
     return <p className="empty">No dishes in this category yet.</p>;
   }
 
-  const limit = 6;
+  const limit = 12;
   const total = allDishes.length;
   const totalPages = Math.ceil(total / limit);
   const currentPage = Math.min(Math.max(1, page), totalPages);

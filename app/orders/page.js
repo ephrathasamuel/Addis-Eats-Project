@@ -14,12 +14,12 @@ export default async function OrdersPage() {
   const orders = getOrdersFor(user.id).slice(0, 10);
 
   return (
-    <main style={{ maxWidth: "760px", margin: "2rem auto", padding: "0 1.5rem" }}>
+    <div style={{ maxWidth: "760px", margin: "2rem auto", padding: "0 1.5rem" }}>
       <div style={{ marginBottom: "2rem" }}>
         <h1 style={{ margin: 0 }}>Your Order History</h1>
       </div>
 
       <OrderList orders={orders} />
-    </main>
+    </div>
   );
 }

@@ -12,7 +12,7 @@
 - **Deployment Status:** Demo deployment; configure shared persistent storage and provisioned staff accounts before production use.
 
 ### Role Access Reference
-Customers register through Supabase Auth. Trusted Supabase project administrators assign `admin`, `staff`, and `delivery` roles in the protected profile table. See [SUPABASE.md](./SUPABASE.md) for project setup.
+Customers register themselves (Supabase Auth, or local accounts when Supabase is not configured) and can use Google sign-in through Supabase. Kitchen staff and couriers are registered by the admin at `/admin/staff`; there is no public staff sign-up. The first admin is created on first start. See [AUTH.md](./AUTH.md) for the full model, including the shared kitchen tablet, and [SUPABASE.md](./SUPABASE.md) for Supabase and Google setup.
 
 ---
 
@@ -39,8 +39,9 @@ When presenting Addis Eats from the live production URL, follow this timed walkt
 - Show the receipt confirmation prompt ("Did you receive your delivery?") and the post-delivery review card featuring 5 purple stars and feedback submission.
 
 ### Minute 5 to 6: Staff and Administrative Operations
-- Switch to `/kitchen`: Show kitchen staff advancing order tickets from Cooking to Ready for Courier.
-- Switch to `/delivery`: Show delivery couriers claiming orders and completing deliveries.
+- Switch to `/kitchen` in **Shared kitchen tablet** mode: select tickets, press Claim, tap a cook and enter their PIN. Show the per-cook counts.
+- Switch to `/delivery`: Show couriers accepting orders from the live pool and completing deliveries; then show the courier card on the customer's order page.
+- Open `/admin/staff`: Register a cook and a courier, reset a password, remove a staff member.
 - Switch to `/admin`: Inspect aggregated revenue metrics, neighborhood sales distribution, and order history management.
 
 ### Minute 6 to 7: Security Architecture and Performance Verification
@@ -61,7 +62,7 @@ When presenting Addis Eats from the live production URL, follow this timed walkt
 Open these five files in editor tabs to examine the core architecture:
 1. **Server Component:** `app/orders/page.js` - Server-side session verification and user-scoped data fetching.
 2. **Client Component:** `app/orders/[id]/OrderStatus.jsx` - SWR live polling, dynamic interval pausing, receipt confirmation, and 5-star review.
-3. **Protected Server Action:** `app/actions.js` - Multi-role authorization checks for `placeOrder`, `cancelOrder`, and `updateKitchenStatus`.
+3. **Protected Server Action:** `app/actions.js` - Multi-role authorization checks for `placeOrder`, `cancelOrder`, `kitchenClaimAction`, and staff management.
 4. **Data Layer and Domain State:** `lib/orders.js` - Order state management, role-scoped data, and workflow transitions.
 5. **Performance Refactor:** `app/menu/DishCard.jsx` - Refactored to pure Server Component to reduce client JavaScript and optimize LCP.
 
@@ -98,8 +99,10 @@ npm run start
 |---|---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes for authentication | Supabase project URL | `https://your-project-ref.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes for authentication | Supabase public publishable key (or legacy anon key) | Configure privately |
-| `ADDIS_DATA_DIR` | Optional | Directory for local JSON order data; not used for authentication | `.addis-data` |
-| `NEXT_PUBLIC_SITE_URL` | Yes | Canonical app URL and Supabase confirmation redirect origin | `http://localhost:3001` |
+| `ADDIS_SESSION_SECRET` | Recommended | Secret for signing local session cookies | Long random string |
+| `ADDIS_ADMIN_EMAIL` / `ADDIS_ADMIN_PASSWORD` | Recommended | First admin account created on first start | Configure privately |
+| `ADDIS_DATA_DIR` | Optional | Directory for local JSON stores (orders, dishes, accounts, uploaded photos) | `.addis-data` |
+| `NEXT_PUBLIC_SITE_URL` | Yes | Canonical app URL for metadata and sitemap | `http://localhost:3000` |
 | `NODE_ENV` | Yes | Deployment environment flag | `production` |
 
 ---

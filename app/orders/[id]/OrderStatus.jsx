@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { getDishByIdSync, getDishByNameSync } from "@/lib/dishes";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 import { confirmDeliveryAction, submitOrderReviewAction, cancelOrder } from "@/app/actions";
+import { Avatar } from "@/components/Modal";
 
 export function OrderStatus({ id, initial }) {
   const [cancelling, setCancelling] = useState(false);
@@ -25,7 +25,7 @@ export function OrderStatus({ id, initial }) {
   // Cancel Request is allowed only within 5 minutes of placing the order
   const orderTime = new Date(current.createdAt).getTime();
   const isCancellable =
-    !isFinished &&
+    current.status === "placed" &&
     !isNaN(orderTime) &&
     Date.now() - orderTime < 5 * 60 * 1000;
 
@@ -162,6 +162,8 @@ export function OrderStatus({ id, initial }) {
           </div>
         )}
       </div>
+
+      {current.courier && <CourierCard courier={current.courier} delivered={current.status === "delivered"} />}
 
       {/* Explaining courier transit driving time vs cooking time */}
       {current.status !== "delivered" && current.status !== "cancelled" && (
@@ -428,8 +430,7 @@ export function OrderStatus({ id, initial }) {
         <h3 style={{ marginTop: "1.5rem", marginBottom: "0.75rem" }}>Items Ordered</h3>
         <div className="profile-cart-list">
           {current.items?.map((item, idx) => {
-            const dish = getDishByIdSync(item.id) || getDishByNameSync(item.name);
-            const imgSrc = item.image || dish?.image || "/images/food/doro-wat.jpg";
+            const imgSrc = item.image || "/images/food/hero-feast.jpg";
             return (
               <div className="order-item-card" key={idx}>
                 <div className="order-item-media">
@@ -524,6 +525,24 @@ export function OrderStatus({ id, initial }) {
           >
             {cancelling ? "Cancelling..." : "Cancel Request"}
           </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Shown once a courier has picked up the order.
+function CourierCard({ courier, delivered }) {
+  return (
+    <div className="courier-card">
+      <Avatar name={courier.name} photo={courier.photo} size={60} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="courier-card__label">{delivered ? "Delivered by" : "Your courier"}</div>
+        <div className="courier-card__name">{courier.name}</div>
+        {courier.phone && !delivered && (
+          <a href={`tel:${courier.phone}`} style={{ fontWeight: 650 }}>
+            Call {courier.phone}
+          </a>
         )}
       </div>
     </div>

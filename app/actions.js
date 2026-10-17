@@ -2,8 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import {
   validateCustomerRegistration,
+  normalizeEthiopianPhone,
   parseDeliveryCoordinates,
   validateOrder,
   validateSignIn,
@@ -12,104 +14,174 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   createOrder,
-  getLocationDriveTime,
-  getLocationFee,
+  priceOrderItems,
   getOrderForUser,
   getDeliveryOrdersFor,
   toOrderClientData,
   cancelOrderRecord,
-  updateKitchenOrderStatus,
+  claimKitchenOrders,
+  markKitchenReady,
+  releaseKitchenOrder,
   confirmOrderReceived,
   submitOrderReview,
   claimAndStartDelivery,
   completeDelivery,
   adminEditOrderRecord,
 } from "@/lib/orders";
-import { getSession, createSession, clearSession } from "@/lib/session";
+import { getSession, createSession, clearSession, toSessionUser } from "@/lib/session";
 import {
-  toggleDishSoldOut,
+  authenticate,
+  changeOwnPassword,
+  createAccount,
+  findAccountByEmail,
+  getAccount,
+  removeAccount,
+  setPassword,
+  setPin,
+  toPublicAccount,
+  updateProfile,
+  verifyPin,
+  STAFF_ROLES,
+} from "@/lib/accounts";
+import {
+  setDishSoldOut,
   removeDish,
   restoreDish,
   addDish,
   updateDish,
+  DISH_CATEGORIES,
 } from "@/lib/dishes";
+import { resolveImageInput } from "@/lib/media";
 import { addDailyExpense } from "@/lib/finances";
+import { getKitchenSnapshot } from "@/lib/kitchen";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function safePath(value, fallback) {
+  return typeof value === "string" && value.startsWith("/") && !value.startsWith("//")
+    ? value
+    : fallback;
+}
+
+const ROLE_HOME = { admin: "/admin", staff: "/kitchen", delivery: "/delivery", customer: "/menu" };
+const ROLE_AREAS = {
+  admin: ["/admin", "/kitchen", "/delivery", "/dashboard", "/track", "/orders", "/profile", "/menu"],
+  staff: ["/kitchen", "/profile", "/menu"],
+  delivery: ["/delivery", "/track", "/profile", "/menu"],
+  customer: ["/menu", "/orders", "/checkout", "/cart", "/track", "/favorites", "/profile"],
+};
+
+// Sends each role somewhere it is allowed to be, honouring ?next= when it fits.
+function destinationFor(role, rawNext) {
+  const next = safePath(rawNext, "");
+  const allowed = ROLE_AREAS[role] || ROLE_AREAS.customer;
+  if (next && next !== "/" && allowed.some((area) => next === area || next.startsWith(`${area}/`) || next.startsWith(`${area}?`))) {
+    return next;
+  }
+  return ROLE_HOME[role] || "/menu";
+}
+
+function signInUrl(params) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) search.set(key, String(value));
+  }
+  return `/signin?${search.toString()}`;
+}
+
+async function getOrigin() {
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") || headerList.get("host");
+  if (host) {
+    const proto =
+      headerList.get("x-forwarded-proto") ||
+      (host.startsWith("localhost") || host.startsWith("127.") || host.startsWith("10.") ? "http" : "https");
+    return `${proto}://${host}`;
+  }
+  return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+}
+
+async function requireRole(...roles) {
+  const user = await getSession();
+  if (!user || !roles.includes(user.role)) return null;
+  return user;
+}
+
+function revalidateMenu(dishId) {
+  revalidatePath("/menu");
+  revalidatePath("/");
+  if (dishId) revalidatePath(`/menu/${dishId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Orders (customer)
+// ---------------------------------------------------------------------------
 
 /**
- * Place Order Server Action
- * Layer 3 Check: Reads session internally on the server, binding the order to the authenticated user.
+ * Place Order. Returns { ok: false, error?, fieldErrors? } on validation
+ * problems, or redirects to the confirmation page on success. Prices and
+ * fees are recomputed on the server from the live menu.
  */
 export async function placeOrder(formData) {
-  const name = formData.get("name");
-  const phone = formData.get("phone");
-  const itemsRaw = formData.get("items");
-  const selectedLocation = formData.get("location") || "Bole";
-  const customLocation = formData.get("customLocation");
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, error: "Your session expired. Please sign in again.", signIn: true };
+  }
+  if (session.role !== "customer") {
+    return { ok: false, error: "Orders can only be placed from a customer account." };
+  }
+
+  const name = String(formData.get("name") || "").trim();
+  const phone = String(formData.get("phone") || "");
+  const addressDetails = String(formData.get("addressDetails") || "").trim();
+  const selectedLocation = String(formData.get("location") || "Bole");
+  const customLocation = String(formData.get("customLocation") || "").trim();
+  const finalLocation =
+    selectedLocation === "Other Neighborhood" ? customLocation || "Other Neighborhood" : selectedLocation;
+
+  let rawItems = [];
+  try {
+    rawItems = JSON.parse(String(formData.get("items") || "[]"));
+  } catch {
+    rawItems = [];
+  }
+
+  const { valid, fieldErrors } = validateOrder({ name, phone, items: rawItems, addressDetails });
+  if (selectedLocation === "Other Neighborhood" && !customLocation) {
+    fieldErrors.location = "Please specify your neighborhood or landmark.";
+  }
   const deliveryCoordinates = parseDeliveryCoordinates(
     formData.get("deliveryLatitude"),
     formData.get("deliveryLongitude")
   );
-  const finalLocation =
-    selectedLocation === "Other Neighborhood" && customLocation?.trim()
-      ? customLocation.trim()
-      : selectedLocation;
-
-  let items = [];
-  try {
-    items = JSON.parse(itemsRaw || "[]");
-  } catch {
-    items = [];
-  }
-
-  const { valid, fieldErrors } = validateOrder({ name, phone, items });
   if (deliveryCoordinates === false) {
-    fieldErrors.deliveryCoordinates = "Choose a valid delivery location or leave the map pin unset.";
+    fieldErrors.deliveryCoordinates = "That map pin is outside our Addis Ababa delivery area. Remove it or try again.";
+  }
+  if (!valid || Object.keys(fieldErrors).length > 0) {
+    return { ok: false, fieldErrors };
   }
 
-  if (!valid || deliveryCoordinates === false) {
-    const params = new URLSearchParams();
-    params.set("items", itemsRaw || "[]");
-    params.set("name", name || "");
-    params.set("phone", phone || "");
-    params.set("location", selectedLocation || "Bole");
-    if (customLocation) params.set("customLocation", customLocation);
-    params.set("error", JSON.stringify(fieldErrors));
-    redirect(`/checkout?${params.toString()}`);
-  }
-
-  const session = await getSession();
-  if (!session) {
-    const checkoutParams = new URLSearchParams();
-    checkoutParams.set("items", itemsRaw || "[]");
-    checkoutParams.set("name", name || "");
-    checkoutParams.set("phone", phone || "");
-    checkoutParams.set("location", finalLocation || "Bole");
-    const checkoutPath = `/checkout?${checkoutParams}`;
-    redirect(`/signin?next=${encodeURIComponent(checkoutPath)}`);
+  const priced = priceOrderItems(rawItems);
+  if (!priced.ok) {
+    return { ok: false, error: priced.error };
   }
 
   const order = createOrder({
     userId: session.id,
     name,
-    phone,
-    items,
+    phone: normalizeEthiopianPhone(phone),
+    items: priced.items,
+    foodTotal: priced.foodTotal,
     location: finalLocation,
-    estimatedEta: getLocationDriveTime(finalLocation),
-    deliveryFee: getLocationFee(finalLocation),
+    addressDetails,
     deliveryCoordinates,
   });
-
-  revalidatePath("/checkout/confirmation");
-  revalidatePath("/orders");
-  revalidatePath(`/orders/${order.id}`);
 
   redirect(`/checkout/confirmation?order=${order.id}`);
 }
 
-/**
- * Cancel Order Server Action
- * Layer 3 Check: Authenticates caller via getSession() and enforces ownership server-side.
- */
 export async function cancelOrder(orderId) {
   const user = await getSession();
   if (!user) {
@@ -121,440 +193,10 @@ export async function cancelOrder(orderId) {
   if (!getOrderForUser(orderId, user.id, user.role)) {
     return { ok: false, status: 404, error: "Order not found." };
   }
-
   const res = cancelOrderRecord(orderId, user.id);
-  revalidatePath("/orders");
-  revalidatePath(`/orders/${orderId}`);
   return res.ok ? { ok: true } : res;
 }
 
-/**
- * Sign In Server Action
- * Issues an httpOnly session cookie and validates destination to stop open-redirects.
- */
-export async function signIn(formData) {
-  const email = String(formData.get("email") || "").trim();
-  const password = String(formData.get("password") || "");
-  const rawNext = formData.get("next") || "/";
-
-  const { valid, fieldErrors } = validateSignIn({ email, password });
-
-  if (!valid) {
-    const params = new URLSearchParams();
-    params.set("email", email);
-    params.set("next", rawNext);
-    params.set("error", JSON.stringify(fieldErrors));
-    redirect(`/signin?${params.toString()}`);
-  }
-
-  let user = null;
-
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = await createSupabaseServerClient();
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (!error) {
-        user = await getSession();
-      }
-    } catch {}
-  }
-
-  // If not authenticated via Supabase (or Supabase not configured), check demo / local fallback
-  if (!user) {
-    const requestedRole = String(formData.get("role") || "").toLowerCase().trim();
-    const emailLower = email.toLowerCase();
-
-    // Determine role: prioritize explicit role from the form or buttons, otherwise check email keywords
-    let role = "customer";
-    if (["admin", "staff", "delivery", "customer"].includes(requestedRole)) {
-      role = requestedRole;
-    } else if (emailLower.includes("admin")) {
-      role = "admin";
-    } else if (emailLower.includes("delivery") || emailLower.includes("courier") || emailLower.includes("driver")) {
-      role = "delivery";
-    } else if (emailLower.includes("staff") || emailLower.includes("chef") || emailLower.includes("kitchen")) {
-      role = "staff";
-    }
-
-    const emailPrefix = email.split("@")[0] || "User";
-    const capitalizedPrefix = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
-
-    const name =
-      role === "admin"
-        ? (emailLower === "admin@addiseats.com" ? "System Admin" : `${capitalizedPrefix} (Admin)`)
-        : role === "staff"
-        ? (emailLower === "staff@addiseats.com" ? "Chef Kassahun" : `${capitalizedPrefix} (Kitchen)`)
-        : role === "delivery"
-        ? (emailLower === "delivery@addiseats.com" ? "Abebe Courier" : `${capitalizedPrefix} (Courier)`)
-        : emailLower === "almaz@example.com"
-        ? "Almaz"
-        : capitalizedPrefix;
-
-    const userId = `usr_${role}_${encodeURIComponent(emailLower.replace(/[^a-z0-9]/g, "_"))}`;
-
-    user = await createSession({
-      id: userId,
-      name,
-      email,
-      role,
-    });
-  }
-
-  let safeNext = "/";
-  if (typeof rawNext === "string" && rawNext.startsWith("/") && !rawNext.startsWith("//")) {
-    safeNext = rawNext;
-  }
-
-  if (safeNext === "/" || safeNext === "/orders") {
-    if (user.role === "admin") {
-      safeNext = "/admin";
-    } else if (user.role === "staff") {
-      safeNext = "/kitchen";
-    } else if (user.role === "delivery") {
-      safeNext = "/delivery";
-    }
-  }
-
-  redirect(safeNext);
-}
-
-/**
- * Sign In With Google Server Action
- * Supports live Google OAuth via Supabase when configured, or seamless instant Google login when Supabase is not active.
- */
-export async function signInWithGoogle(formData) {
-  const rawNext = formData?.get ? formData.get("next") : "/orders";
-  const requestedRole = (formData?.get ? formData.get("role") : null) || "customer";
-  const role = ["admin", "staff", "delivery", "customer"].includes(requestedRole) ? requestedRole : "customer";
-
-  let safeNext = "/";
-  if (typeof rawNext === "string" && rawNext.startsWith("/") && !rawNext.startsWith("//")) {
-    safeNext = rawNext;
-  }
-
-  if (safeNext === "/" || safeNext === "/orders") {
-    if (role === "admin") {
-      safeNext = "/admin";
-    } else if (role === "staff") {
-      safeNext = "/kitchen";
-    } else if (role === "delivery") {
-      safeNext = "/delivery";
-    }
-  }
-
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = await createSupabaseServerClient();
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3001"}/auth/callback?next=${encodeURIComponent(safeNext)}`,
-        },
-      });
-      if (!error && data?.url) {
-        redirect(data.url);
-      }
-    } catch {}
-  }
-
-  const customGoogleEmail = formData?.get ? formData.get("googleEmail") : null;
-  const customGoogleName = formData?.get ? formData.get("googleName") : null;
-
-  // Fallback Google Sign In when Supabase is not active
-  const googleName = customGoogleName
-    ? String(customGoogleName).trim()
-    : role === "admin"
-    ? "Google Administrator"
-    : role === "staff"
-    ? "Google Kitchen Staff"
-    : role === "delivery"
-    ? "Google Courier"
-    : "Google User";
-
-  const googleEmail = customGoogleEmail
-    ? String(customGoogleEmail).trim().toLowerCase()
-    : role === "admin"
-    ? "admin.google@gmail.com"
-    : role === "staff"
-    ? "staff.google@gmail.com"
-    : role === "delivery"
-    ? "courier.google@gmail.com"
-    : "user.google@gmail.com";
-
-  await createSession({
-    id: `usr_google_${role}_${Date.now()}`,
-    name: googleName,
-    email: googleEmail,
-    role,
-  });
-
-  redirect(safeNext);
-}
-
-export async function signUp(formData) {
-  const name = String(formData.get("name") || "").trim();
-  const email = String(formData.get("email") || "").trim();
-  const password = String(formData.get("password") || "");
-  const rawNext = formData.get("next") || "/orders";
-  const { valid, fieldErrors } = validateCustomerRegistration({ name, email, password });
-
-  if (!valid) {
-    const params = new URLSearchParams({
-      mode: "register",
-      name,
-      email,
-      next: String(rawNext),
-      error: JSON.stringify(fieldErrors),
-    });
-    redirect(`/signin?${params.toString()}`);
-  }
-
-  const safeNext =
-    typeof rawNext === "string" && rawNext.startsWith("/") && !rawNext.startsWith("//")
-      ? rawNext
-      : "/orders";
-
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = await createSupabaseServerClient();
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: name },
-          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3001"}/auth/callback?next=${encodeURIComponent(safeNext)}`,
-        },
-      });
-      if (error) {
-        const params = new URLSearchParams({
-          mode: "register",
-          name,
-          email,
-          next: String(rawNext),
-          error: "Account creation failed. Check that Supabase email/password sign-up is enabled and try again.",
-        });
-        redirect(`/signin?${params.toString()}`);
-      }
-
-      if (!data.session) {
-        redirect(`/signin?registered=1&email=${encodeURIComponent(email)}`);
-      }
-
-      const user = await getSession();
-      if (user) {
-        redirect(safeNext);
-      }
-    } catch {}
-  }
-
-  // Fallback local registration
-  await createSession({
-    id: `usr_${Date.now()}`,
-    name,
-    email,
-    role: "customer",
-  });
-
-  redirect(safeNext);
-}
-
-/**
- * Sign Out Server Action
- */
-export async function signOut() {
-  await clearSession();
-  redirect("/");
-}
-
-/**
- * Staff Kitchen & Delivery Courier Status Update Action
- */
-export async function updateKitchenStatus(orderId, newStatus) {
-  const user = await getSession();
-  if (!user || (user.role !== "staff" && user.role !== "admin")) {
-    return { ok: false, status: 403, error: "Unauthorized: Kitchen staff permission required." };
-  }
-
-  const result = updateKitchenOrderStatus(orderId, newStatus, user.id, user.role === "admin");
-  if (!result.ok) return result;
-  revalidatePath("/kitchen");
-  revalidatePath("/delivery");
-  revalidatePath("/admin");
-  revalidatePath(`/orders/${orderId}`);
-  return { ok: true, order: { id: result.order.id, status: result.order.status } };
-}
-
-export async function updateDeliveryStatus(orderId, newStatus) {
-  return updateKitchenStatus(orderId, newStatus);
-}
-
-/**
- * Admin Action: Toggle Sold Out status on a dish
- */
-export async function toggleSoldOutAction(dishId) {
-  const user = await getSession();
-  if (!user || user.role !== "admin") {
-    return { ok: false, error: "Unauthorized: Admin permission required." };
-  }
-
-  const dish = toggleDishSoldOut(dishId);
-  revalidatePath("/admin");
-  revalidatePath("/menu");
-  revalidatePath("/");
-  return { ok: true, isSoldOut: dish?.isSoldOut };
-}
-
-/**
- * Admin Action: Remove / Archive a dish from the menu
- */
-export async function removeDishAction(dishId) {
-  const user = await getSession();
-  if (!user || user.role !== "admin") {
-    return { ok: false, error: "Unauthorized: Admin permission required." };
-  }
-
-  removeDish(dishId);
-  revalidatePath("/admin");
-  revalidatePath("/menu");
-  revalidatePath("/");
-  return { ok: true, isRemoved: true };
-}
-
-/**
- * Admin Action: Restore a previously removed dish
- */
-export async function restoreDishAction(dishId) {
-  const user = await getSession();
-  if (!user || user.role !== "admin") {
-    return { ok: false, error: "Unauthorized: Admin permission required." };
-  }
-
-  restoreDish(dishId);
-  revalidatePath("/admin");
-  revalidatePath("/menu");
-  revalidatePath("/");
-  return { ok: true, isRemoved: false };
-}
-
-/**
- * Admin Action: Add a new dish to the live menu
- */
-export async function addDishAction(formData) {
-  const user = await getSession();
-  if (!user || user.role !== "admin") {
-    return { ok: false, error: "Unauthorized: Administrator permissions required." };
-  }
-
-  const name = formData.get("name")?.trim();
-  const category = formData.get("category")?.trim();
-  const price = formData.get("price");
-  const spicy = formData.get("spicy") === "true" || formData.get("spicy") === "on";
-  const tag = formData.get("tag")?.trim();
-  const description = formData.get("description")?.trim();
-  const image = formData.get("image")?.trim();
-
-  if (!name) {
-    return { ok: false, error: "Dish name is required." };
-  }
-  if (!price || isNaN(Number(price)) || Number(price) <= 0) {
-    return { ok: false, error: "A valid positive price in ETB is required." };
-  }
-
-  const newDish = addDish({
-    name,
-    category: category || "Traditional",
-    price: Number(price),
-    spicy,
-    tag: tag || "Chef's Special",
-    description: description || "Freshly cooked specialty.",
-    image: image || "/images/food/doro-wat.jpg",
-  });
-
-  revalidatePath("/admin");
-  revalidatePath("/menu");
-  revalidatePath("/");
-  return { ok: true, dish: newDish };
-}
-
-/**
- * Admin Action: Edit details of an existing food in the menu
- */
-export async function editDishAction(formData) {
-  const user = await getSession();
-  if (!user || user.role !== "admin") {
-    return { ok: false, error: "Unauthorized: Administrator permissions required." };
-  }
-
-  const id = formData.get("id");
-  const name = formData.get("name")?.trim();
-  const category = formData.get("category")?.trim();
-  const price = formData.get("price");
-  const spicy = formData.get("spicy") === "true" || formData.get("spicy") === "on";
-  const tag = formData.get("tag")?.trim();
-  const description = formData.get("description")?.trim();
-  const image = formData.get("image")?.trim();
-
-  if (!id) {
-    return { ok: false, error: "Dish ID is missing." };
-  }
-  if (!name) {
-    return { ok: false, error: "Dish name cannot be empty." };
-  }
-  if (!price || isNaN(Number(price)) || Number(price) <= 0) {
-    return { ok: false, error: "Valid price is required." };
-  }
-
-  const updated = updateDish({
-    id,
-    name,
-    category,
-    price: Number(price),
-    spicy,
-    tag,
-    description,
-    image,
-  });
-
-  revalidatePath("/admin");
-  revalidatePath("/menu");
-  revalidatePath(`/menu/${id}`);
-  revalidatePath("/");
-  return { ok: true, dish: updated };
-}
-
-/**
- * Admin Action: Insert daily raw materials and transport expenses
- */
-export async function addDailyExpenseAction(formData) {
-  const user = await getSession();
-  if (!user || user.role !== "admin") {
-    return { ok: false, error: "Unauthorized: Administrator permissions required." };
-  }
-
-  const date = formData.get("date");
-  const rawMaterials = formData.get("rawMaterials");
-  const transport = formData.get("transport");
-  const note = formData.get("note");
-
-  if (!date) {
-    return { ok: false, error: "Date is required." };
-  }
-
-  const record = addDailyExpense({
-    date,
-    rawMaterials: Number(rawMaterials) || 0,
-    transport: Number(transport) || 0,
-    note: note || "",
-  });
-
-  revalidatePath("/admin");
-  revalidatePath("/admin/finances");
-  return { ok: true, record };
-}
-
-/**
- * Customer Action: Confirm that the food was received
- */
 export async function confirmDeliveryAction(orderId) {
   const user = await getSession();
   if (!user) return { ok: false, status: 401, error: "Authentication required." };
@@ -564,17 +206,11 @@ export async function confirmDeliveryAction(orderId) {
   if (!getOrderForUser(orderId, user.id, user.role)) {
     return { ok: false, status: 404, error: "Order not found." };
   }
-
   const updated = confirmOrderReceived(orderId);
-  if (!updated) return { ok: false, status: 404, error: "Order not found." };
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/orders");
+  if (!updated) return { ok: false, status: 409, error: "This order has not been marked delivered yet." };
   return { ok: true };
 }
 
-/**
- * Customer Action: Submit review and ratings for a delivered order
- */
 export async function submitOrderReviewAction(formData) {
   const orderId = formData.get("orderId");
   const rating = formData.get("rating");
@@ -602,66 +238,443 @@ export async function submitOrderReviewAction(formData) {
 
   const updated = submitOrderReview(orderId, parsedRating, String(comment || "").trim());
   if (!updated) return { ok: false, status: 409, error: "Reviews are available once after the order is delivered." };
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/orders");
-  revalidatePath("/admin");
-  revalidatePath("/menu");
-  revalidatePath("/favorites");
+  revalidateMenu();
   return { ok: true };
 }
 
+// ---------------------------------------------------------------------------
+// Authentication
+// ---------------------------------------------------------------------------
+
+/**
+ * Email + password sign-in for everyone. Staff and admin accounts live in the
+ * local account store; customers use Supabase when it is configured.
+ */
+export async function signIn(formData) {
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
+  const rawNext = formData.get("next") || "";
+
+  const { valid, fieldErrors } = validateSignIn({ email, password });
+  if (!valid) {
+    redirect(signInUrl({ email, next: rawNext, error: JSON.stringify(fieldErrors) }));
+  }
+
+  let role = null;
+  let errorMessage = "Incorrect email or password.";
+
+  if (findAccountByEmail(email) || !isSupabaseConfigured()) {
+    const result = authenticate(email, password);
+    if (result.ok) {
+      await createSession(result.account);
+      role = result.account.role;
+    } else {
+      errorMessage = result.error;
+    }
+  } else {
+    try {
+      const supabase = await createSupabaseServerClient();
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (!error && data.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .maybeSingle();
+        role = profile?.role || "customer";
+      } else if (error?.code === "email_not_confirmed") {
+        errorMessage = "Confirm your email address first, then sign in.";
+      }
+    } catch {
+      errorMessage = "The sign-in service is unavailable. Please try again.";
+    }
+  }
+
+  if (!role) {
+    redirect(signInUrl({ email, next: rawNext, error: errorMessage }));
+  }
+  redirect(destinationFor(role, rawNext));
+}
+
+/**
+ * Google sign-in through Supabase OAuth. Google shows its own account chooser
+ * (prompt=select_account), and the profile name comes from the Google account.
+ */
+export async function signInWithGoogle(formData) {
+  const next = safePath(formData?.get?.("next"), "/menu");
+  if (!isSupabaseConfigured()) {
+    redirect(signInUrl({ next, error: "Google sign-in is not configured on this server." }));
+  }
+
+  let url = null;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const origin = await getOrigin();
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        queryParams: { prompt: "select_account" },
+      },
+    });
+    if (!error) url = data?.url || null;
+  } catch {
+    url = null;
+  }
+
+  // redirect() works by throwing, so it must stay outside the try/catch above.
+  if (!url) {
+    redirect(signInUrl({ next, error: "Google sign-in is unavailable. Check that the Google provider is enabled in Supabase." }));
+  }
+  redirect(url);
+}
+
+/**
+ * Customer self-registration. Staff accounts cannot be created here.
+ */
+export async function signUp(formData) {
+  const name = String(formData.get("name") || "").trim();
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
+  const rawNext = formData.get("next") || "";
+  const { valid, fieldErrors } = validateCustomerRegistration({ name, email, password });
+  const back = (error) => redirect(signInUrl({ mode: "register", name, email, next: rawNext, error }));
+
+  if (!valid) back(JSON.stringify(fieldErrors));
+  const destination = destinationFor("customer", rawNext);
+
+  if (findAccountByEmail(email)) {
+    back(JSON.stringify({ email: "An account with this email already exists. Sign in instead." }));
+  }
+
+  if (isSupabaseConfigured()) {
+    let result;
+    try {
+      const supabase = await createSupabaseServerClient();
+      const origin = await getOrigin();
+      result = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: name },
+          emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(destination)}`,
+        },
+      });
+    } catch {
+      result = { error: new Error("unavailable") };
+    }
+    if (result.error) {
+      back("Account creation failed. The email may already be registered, or sign-up is disabled in Supabase.");
+    }
+    if (!result.data?.session) {
+      redirect(`/signin?registered=1&email=${encodeURIComponent(email)}`);
+    }
+    redirect(destination);
+  }
+
+  const created = createAccount({ role: "customer", name, email, password });
+  if (!created.ok) back(JSON.stringify(created.fieldErrors));
+  await createSession(created.account);
+  redirect(destination);
+}
+
+export async function signOut() {
+  await clearSession();
+  redirect("/");
+}
+
+// ---------------------------------------------------------------------------
+// Profile (every signed-in user)
+// ---------------------------------------------------------------------------
+
+export async function changePasswordAction(formData) {
+  const user = await getSession();
+  if (!user) return { ok: false, error: "Please sign in again." };
+  const currentPassword = String(formData.get("currentPassword") || "");
+  const newPassword = String(formData.get("newPassword") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+  if (newPassword !== confirmPassword) return { ok: false, error: "The new passwords do not match." };
+
+  if (user.provider === "supabase") {
+    if (newPassword.length < 8) return { ok: false, error: "Password must be at least 8 characters." };
+    try {
+      const supabase = await createSupabaseServerClient();
+      const { error: verifyError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword });
+      if (verifyError) return { ok: false, error: "Your current password is incorrect." };
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) return { ok: false, error: "Could not update the password. Please try again." };
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "The account service is unavailable. Please try again." };
+    }
+  }
+
+  const result = changeOwnPassword(user.id, currentPassword, newPassword);
+  if (!result.ok) return result;
+  // The password change invalidated every session, including this one; issue a fresh one.
+  await createSession(result.account);
+  return { ok: true };
+}
+
+export async function updateMyProfileAction(formData) {
+  const user = await getSession();
+  if (!user || user.provider !== "local") return { ok: false, error: "Profile details cannot be edited for this account." };
+  const photoInput = formData.get("photo");
+  let photo;
+  if (photoInput) {
+    const resolved = resolveImageInput(photoInput, "staff");
+    if (!resolved.ok) return { ok: false, error: resolved.error };
+    photo = resolved.url;
+  }
+  const result = updateProfile(user.id, {
+    name: formData.get("name") ?? undefined,
+    phone: formData.get("phone") ?? undefined,
+    photo,
+  });
+  if (!result.ok) return { ok: false, fieldErrors: result.fieldErrors, error: result.error };
+  return { ok: true, user: toSessionUser(result.account) };
+}
+
+export async function changeMyPinAction(formData) {
+  const user = await requireRole("staff");
+  if (!user) return { ok: false, error: "Only kitchen staff have PINs." };
+  const result = authenticate(user.email, String(formData.get("currentPassword") || ""));
+  if (!result.ok) return { ok: false, error: "Your current password is incorrect." };
+  return setPin(user.id, String(formData.get("pin") || ""));
+}
+
+// ---------------------------------------------------------------------------
+// Kitchen
+// ---------------------------------------------------------------------------
+
+/**
+ * Claim one or more waiting tickets.
+ * - Personal device: the signed-in cook gets the credit.
+ * - Shared kitchen tablet: pass { staffId, pin }; the cook who owns that PIN
+ *   gets the credit, so nobody has to sign out and back in.
+ */
+export async function kitchenClaimAction({ orderIds, staffId, pin } = {}) {
+  const user = await requireRole("staff", "admin");
+  if (!user) return { ok: false, error: "Kitchen staff sign-in required." };
+  const ids = Array.isArray(orderIds) ? orderIds.slice(0, 50).map(String) : [];
+  if (ids.length === 0) return { ok: false, error: "Select at least one ticket." };
+
+  let cook;
+  if (staffId) {
+    const check = verifyPin(staffId, pin);
+    if (!check.ok) return { ok: false, error: check.error, pinError: true };
+    cook = check.account;
+  } else if (user.role === "staff") {
+    cook = getAccount(user.id);
+  } else {
+    return { ok: false, error: "Pick the cook who is claiming these tickets." };
+  }
+
+  const results = claimKitchenOrders(ids, { id: cook.id, name: cook.name });
+  return { ok: true, cook: { id: cook.id, name: cook.name }, results, snapshot: getKitchenSnapshot() };
+}
+
+export async function kitchenReadyAction(orderIds) {
+  const user = await requireRole("staff", "admin");
+  if (!user) return { ok: false, error: "Kitchen staff sign-in required." };
+  const ids = (Array.isArray(orderIds) ? orderIds : [orderIds]).slice(0, 50).map(String);
+  const results = markKitchenReady(ids);
+  return { ok: true, results, snapshot: getKitchenSnapshot() };
+}
+
+export async function kitchenReleaseAction(orderId) {
+  const user = await requireRole("staff", "admin");
+  if (!user) return { ok: false, error: "Kitchen staff sign-in required." };
+  const result = releaseKitchenOrder(orderId);
+  return { ...result, snapshot: getKitchenSnapshot() };
+}
+
+/**
+ * Kitchen staff and admins can mark dishes sold out / available.
+ */
+export async function setDishSoldOutAction(dishId, isSoldOut) {
+  const user = await requireRole("staff", "admin");
+  if (!user) return { ok: false, error: "Only kitchen staff or admins can change availability." };
+  const dish = setDishSoldOut(String(dishId), typeof isSoldOut === "boolean" ? isSoldOut : undefined);
+  if (!dish) return { ok: false, error: "Dish not found." };
+  revalidateMenu(dish.id);
+  return { ok: true, isSoldOut: dish.isSoldOut };
+}
+
+// Kept for the admin inventory list.
+export async function toggleSoldOutAction(dishId) {
+  return setDishSoldOutAction(dishId);
+}
+
+// ---------------------------------------------------------------------------
+// Delivery
+// ---------------------------------------------------------------------------
 
 export async function claimAndStartDeliveryAction(orderId) {
-  const user = await getSession();
-  if (!user || user.role !== "delivery") {
-    return { ok: false, error: "Unauthorized: Delivery courier account required to claim order." };
-  }
-  const res = claimAndStartDelivery(orderId, user.id, user.name);
-  if (res.ok) {
-    revalidatePath("/delivery");
-    revalidatePath("/admin");
-    revalidatePath("/kitchen");
-    revalidatePath(`/orders/${orderId}`);
-  }
-  if (!res.ok) return res;
-  const order = getDeliveryOrdersFor(user.id).find((delivery) => String(delivery.id) === String(orderId));
-  return order
-    ? { ok: true, order }
-    : { ok: false, error: "Order was claimed but could not be loaded for the courier." };
+  const user = await requireRole("delivery");
+  if (!user) return { ok: false, error: "A courier account is required to claim orders." };
+  const res = claimAndStartDelivery(orderId, user);
+  return { ...res, order: undefined, orders: getDeliveryOrdersFor(user.id) };
 }
 
 export async function completeDeliveryAction(orderId) {
-  const user = await getSession();
-  if (!user || user.role !== "delivery") {
-    return { ok: false, error: "Unauthorized: Only the assigned delivery courier can mark an order delivered." };
-  }
+  const user = await requireRole("delivery");
+  if (!user) return { ok: false, error: "Only the assigned courier can mark an order delivered." };
   const res = completeDelivery(orderId, user.id);
-  if (res.ok) {
-    revalidatePath("/delivery");
-    revalidatePath("/admin");
-    revalidatePath(`/orders/${orderId}`);
-  }
-  return res.ok ? { ok: true } : res;
+  return { ...res, order: undefined, orders: getDeliveryOrdersFor(user.id) };
+}
+
+// ---------------------------------------------------------------------------
+// Admin: menu
+// ---------------------------------------------------------------------------
+
+function readDishForm(formData) {
+  const price = Number(formData.get("price"));
+  return {
+    name: String(formData.get("name") || "").trim(),
+    category: String(formData.get("category") || "").trim(),
+    price,
+    spicy: formData.get("spicy") === "true" || formData.get("spicy") === "on",
+    tag: String(formData.get("tag") || "").trim().slice(0, 40),
+    description: String(formData.get("description") || "").trim().slice(0, 500),
+    image: formData.get("image"),
+  };
+}
+
+function validateDish(dish) {
+  if (!dish.name || dish.name.length > 80) return "Dish name is required (up to 80 characters).";
+  if (!Number.isFinite(dish.price) || dish.price <= 0 || dish.price > 100000) return "A valid positive price in ETB is required.";
+  if (dish.category && !DISH_CATEGORIES.includes(dish.category)) return "Choose a valid category.";
+  return null;
+}
+
+export async function addDishAction(formData) {
+  if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
+  const input = readDishForm(formData);
+  const error = validateDish(input);
+  if (error) return { ok: false, error };
+  const image = resolveImageInput(input.image, "dish");
+  if (!image.ok) return { ok: false, error: image.error };
+
+  const newDish = addDish({ ...input, category: input.category || "Traditional", image: image.url });
+  revalidateMenu(newDish.id);
+  return { ok: true, dish: newDish };
+}
+
+export async function editDishAction(formData) {
+  if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
+  const id = String(formData.get("id") || "");
+  if (!id) return { ok: false, error: "Dish ID is missing." };
+  const input = readDishForm(formData);
+  const error = validateDish(input);
+  if (error) return { ok: false, error };
+  const image = resolveImageInput(input.image, "dish");
+  if (!image.ok) return { ok: false, error: image.error };
+
+  const updated = updateDish({ id, ...input, image: image.url || undefined });
+  if (!updated) return { ok: false, error: "Dish not found." };
+  revalidateMenu(id);
+  return { ok: true, dish: updated };
+}
+
+export async function removeDishAction(dishId) {
+  if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
+  if (!removeDish(dishId)) return { ok: false, error: "Dish not found." };
+  revalidateMenu(dishId);
+  return { ok: true, isRemoved: true };
+}
+
+export async function restoreDishAction(dishId) {
+  if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
+  if (!restoreDish(dishId)) return { ok: false, error: "Dish not found." };
+  revalidateMenu(dishId);
+  return { ok: true, isRemoved: false };
+}
+
+// ---------------------------------------------------------------------------
+// Admin: finances and orders
+// ---------------------------------------------------------------------------
+
+export async function addDailyExpenseAction(formData) {
+  if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
+  const date = String(formData.get("date") || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: "Date is required." };
+
+  const record = addDailyExpense({
+    date,
+    rawMaterials: Math.max(0, Number(formData.get("rawMaterials")) || 0),
+    transport: Math.max(0, Number(formData.get("transport")) || 0),
+    note: String(formData.get("note") || "").slice(0, 300),
+  });
+  revalidatePath("/admin");
+  revalidatePath("/admin/finances");
+  return { ok: true, record };
 }
 
 export async function adminEditOrderAction(formData) {
-  const user = await getSession();
-  if (!user || user.role !== "admin") {
-    return { ok: false, error: "Unauthorized: Administrator permissions required." };
-  }
+  const user = await requireRole("admin");
+  if (!user) return { ok: false, error: "Administrator permissions required." };
   const id = formData.get("id");
   const phone = formData.get("phone");
-  const location = formData.get("location");
-  const note = formData.get("note");
-  const res = adminEditOrderRecord(id, { phone, location, note }, user.name);
-  if (res.ok) {
-    revalidatePath("/admin");
-    revalidatePath("/orders");
-    revalidatePath(`/orders/${id}`);
-    revalidatePath("/kitchen");
-    revalidatePath("/delivery");
+  if (phone && !normalizeEthiopianPhone(phone)) return { ok: false, error: "Enter a valid Ethiopian phone number." };
+  const res = adminEditOrderRecord(
+    id,
+    { phone: phone ? normalizeEthiopianPhone(phone) : "", location: formData.get("location"), note: formData.get("note") },
+    user.name
+  );
+  return res.ok ? { ok: true, order: toOrderClientData(res.order) } : res;
+}
+
+// ---------------------------------------------------------------------------
+// Admin: staff accounts
+// ---------------------------------------------------------------------------
+
+export async function createStaffAction(formData) {
+  if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
+  const role = String(formData.get("role") || "");
+  let photo = "";
+  const photoInput = formData.get("photo");
+  if (photoInput) {
+    const resolved = resolveImageInput(photoInput, "staff");
+    if (!resolved.ok) return { ok: false, fieldErrors: { photo: resolved.error } };
+    photo = resolved.url;
   }
-  return res.ok
-    ? { ok: true, order: toOrderClientData(res.order) }
-    : res;
+  const result = createAccount({
+    role: STAFF_ROLES.includes(role) ? role : "",
+    name: formData.get("name"),
+    email: formData.get("email"),
+    phone: formData.get("phone"),
+    photo,
+    password: String(formData.get("password") || ""),
+    pin: String(formData.get("pin") || ""),
+  });
+  if (!result.ok) return result;
+  revalidatePath("/admin/staff");
+  return { ok: true, staff: toPublicAccount(result.account) };
+}
+
+function getStaffAccount(staffId) {
+  const account = getAccount(String(staffId || ""));
+  return account && STAFF_ROLES.includes(account.role) ? account : null;
+}
+
+export async function resetStaffPasswordAction(staffId, newPassword) {
+  if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
+  if (!getStaffAccount(staffId)) return { ok: false, error: "Staff member not found." };
+  const result = setPassword(staffId, String(newPassword || ""));
+  return result.ok ? { ok: true } : result;
+}
+
+export async function resetStaffPinAction(staffId, pin) {
+  if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
+  if (!getStaffAccount(staffId)) return { ok: false, error: "Staff member not found." };
+  return setPin(staffId, String(pin || ""));
+}
+
+export async function removeStaffAction(staffId) {
+  if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
+  if (!getStaffAccount(staffId)) return { ok: false, error: "Staff member not found." };
+  const result = removeAccount(staffId);
+  revalidatePath("/admin/staff");
+  return result;
 }

@@ -1,9 +1,4 @@
-import {
-  getAllOrders,
-  getDeliveryOrdersFor,
-  getOrdersFor,
-  toOrderTrackingData,
-} from "@/lib/orders";
+import { getAllOrders, toOrderTrackingData } from "@/lib/orders";
 import { getSession } from "@/lib/session";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
@@ -21,11 +16,15 @@ export default async function TrackIndexPage({ searchParams }) {
   const user = await getSession();
   if (!user) redirect("/signin?next=/track");
 
-  const orders = user.role === "admin"
-    ? getAllOrders()
-    : user.role === "delivery"
-      ? getDeliveryOrdersFor(user.id).filter((order) => order.courierId === user.id)
-      : getOrdersFor(user.id);
+  const visible = getAllOrders().filter((order) =>
+    order.status !== "cancelled" &&
+    (user.role === "admin" ||
+      (user.role === "delivery" && order.courierId === user.id) ||
+      (user.role === "customer" && order.userId === user.id))
+  );
+  // Orders still on their way come first.
+  const isActive = (order) => !["delivered", "cancelled"].includes(order.status);
+  const orders = [...visible.filter(isActive), ...visible.filter((order) => !isActive(order))].slice(0, 30);
   const requestedOrderId = Array.isArray(params?.order) ? params.order[0] : params?.order;
   if (requestedOrderId && !orders.some((order) => String(order.id) === String(requestedOrderId))) {
     notFound();
@@ -33,7 +32,7 @@ export default async function TrackIndexPage({ searchParams }) {
   const selectedOrder = orders.find((order) => String(order.id) === String(requestedOrderId)) || orders[0];
 
   return (
-    <main style={{ maxWidth: "1080px", margin: "2rem auto", padding: "0 1.5rem 4rem" }}>
+    <div className="page-wide">
       <div style={{ marginBottom: "1.5rem" }}>
         <h1 style={{ margin: "0 0 0.35rem" }}>
           {user.role === "admin" ? "All Delivery Maps" : user.role === "delivery" ? "My Assigned Delivery Maps" : "Your Live Delivery Maps"}
@@ -69,15 +68,25 @@ export default async function TrackIndexPage({ searchParams }) {
           ))}
         </div>
           )}
-          <DeliveryMap orderId={selectedOrder.id} initialOrder={toOrderTrackingData(selectedOrder)} />
+          <DeliveryMap key={selectedOrder.id} orderId={selectedOrder.id} initialOrder={toOrderTrackingData(selectedOrder)} viewerRole={user.role} />
         </>
       ) : (
         <div className="empty-state">
-          <h2>No orders to track yet</h2>
-          <p>Your order maps will appear here after you place an order while signed in.</p>
-          <Link href="/menu" className="btn-primary">Browse the menu</Link>
+          {user.role === "delivery" ? (
+            <>
+              <h2>No deliveries to map yet</h2>
+              <p>Accept an order on the delivery board and its map appears here.</p>
+              <Link href="/delivery" className="btn-primary">Open the delivery board</Link>
+            </>
+          ) : (
+            <>
+              <h2>No orders to track yet</h2>
+              <p>Your order maps will appear here after you place an order while signed in.</p>
+              <Link href="/menu" className="btn-primary">Browse the menu</Link>
+            </>
+          )}
         </div>
       )}
-    </main>
+    </div>
   );
 }

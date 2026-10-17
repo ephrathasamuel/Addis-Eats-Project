@@ -14,7 +14,8 @@ function copyRefreshCookies(from, to) {
 
 export async function proxy(request) {
   const config = getSupabaseConfig();
-  const hasLocalSession = request.cookies.has("addis_session") || request.cookies.has("user_role");
+  // Only checks that some session cookie exists; pages and actions verify it.
+  const hasLocalSession = request.cookies.has("addis_session");
   const pathname = request.nextUrl.pathname;
   const isApiRequest = pathname.startsWith("/api/");
   const isOptionalProfilePage = pathname === "/profile";

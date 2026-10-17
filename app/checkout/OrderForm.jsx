@@ -1,125 +1,107 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { placeOrder } from "@/app/actions";
+import { DELIVERY_LOCATIONS, isInAddis } from "@/lib/locations";
 
-const DELIVERY_LOCATIONS = [
-  { id: "bole", name: "Bole", driveTime: "15-20 mins", fee: 50, area: "Edna Mall, Medhanialem, Olympia" },
-  { id: "kazanchis", name: "Kazanchis", driveTime: "15-25 mins", fee: 50, area: "UNECA, Intercontinental, Bambis" },
-  { id: "mexico", name: "Mexico", driveTime: "20-25 mins", fee: 50, area: "Sengatera, Stadium, Kera" },
-  { id: "sarbet", name: "Sarbet", driveTime: "20-25 mins", fee: 50, area: "Old Airport, AU Headquarters, Karl Square" },
-  { id: "piassa", name: "Piassa", driveTime: "25-30 mins", fee: 70, area: "Churchill Ave, Arada, Posta Bet" },
-  { id: "gerji", name: "Gerji", driveTime: "25-35 mins", fee: 70, area: "Imperial, Roba Bakery, Jackros" },
-  { id: "megenagna", name: "Megenagna", driveTime: "20-30 mins", fee: 70, area: "Signal, Shola, Lem Hotel" },
-  { id: "cmc", name: "CMC", driveTime: "35-45 mins", fee: 90, area: "Michael, Tsehay Real Estate, Altad" },
-  { id: "lebu", name: "Lebu", driveTime: "35-45 mins", fee: 90, area: "Jemo, Haile Garment, Varnero" },
-  { id: "ayat", name: "Ayat", driveTime: "40-50 mins", fee: 110, area: "Ayat Zone 2 & 3, Tafo Highway" },
-  { id: "other", name: "Other Neighborhood", driveTime: "30-45 mins", fee: 100, area: "Custom neighborhood or landmark" },
-];
+const PHONE_RE = /^(?:\+251|0)[79]\d{8}$/;
 
-export default function OrderForm({ itemsRaw, initialName = "", initialPhone = "", fieldErrors = {} }) {
+function validatePhone(value) {
+  const cleaned = value.replace(/[\s-]/g, "");
+  if (!cleaned) return "Phone number is required";
+  if (!PHONE_RE.test(cleaned)) return "Enter a valid Ethiopian phone number (e.g. 0911234567 or 0712345678)";
+  return null;
+}
+
+export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "" }) {
+  const router = useRouter();
   const [name, setName] = useState(initialName);
-  const [phone, setPhone] = useState(initialPhone);
+  const [phone, setPhone] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("Bole");
   const [customLocation, setCustomLocation] = useState("");
-  const [errors, setErrors] = useState(fieldErrors);
-  const [pending, setPending] = useState(false);
+  const [addressDetails, setAddressDetails] = useState("");
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState("");
+  const [pending, startTransition] = useTransition();
   const [deliveryCoordinates, setDeliveryCoordinates] = useState(null);
+  const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState("");
 
-  let parsedItems = [];
-  try {
-    parsedItems = JSON.parse(itemsRaw || "[]");
-  } catch {
-    parsedItems = [];
-  }
-  const foodSubtotal = parsedItems.reduce((sum, i) => sum + (Number(i.price) || 0) * (Number(i.qty) || 1), 0);
-
-  const matchedLocation =
-    DELIVERY_LOCATIONS.find((l) => l.name === selectedLocation) || DELIVERY_LOCATIONS[0];
-  const currentDriveTime = matchedLocation.driveTime;
-  const currentDeliveryFee = matchedLocation.fee;
+  const matchedLocation = DELIVERY_LOCATIONS.find((l) => l.name === selectedLocation) || DELIVERY_LOCATIONS[0];
   const isOther = selectedLocation === "Other Neighborhood";
+  const grandTotal = foodSubtotal + matchedLocation.fee;
 
-  const grandTotal = foodSubtotal + currentDeliveryFee;
-
-  function validatePhone(value) {
-    const cleaned = value.replace(/[\s-]/g, "");
-    if (!cleaned) {
-      return "Phone number is required";
-    }
-    const etPhoneRegex = /^(?:\+251|0)[97]\d{8}$/;
-    if (!etPhoneRegex.test(cleaned)) {
-      return "Enter a valid Ethiopian phone number (e.g. 0911234567 or 0712345678)";
-    }
-    return null;
+  function clearError(key) {
+    if (errors[key]) setErrors((previous) => ({ ...previous, [key]: null }));
   }
 
-  function handlePhoneBlur() {
-    const err = validatePhone(phone);
-    setErrors((prev) => ({
-      ...prev,
-      phone: err,
-    }));
+  function handleSubmit(event) {
+    event.preventDefault();
+    if (pending) return;
+
+    const nextErrors = {};
+    if (name.trim().length < 2) nextErrors.name = "Name is required";
+    const phoneError = validatePhone(phone);
+    if (phoneError) nextErrors.phone = phoneError;
+    if (isOther && !customLocation.trim()) nextErrors.location = "Please specify your neighborhood or landmark";
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    setFormError("");
+    startTransition(async () => {
+      // On success the action redirects to the confirmation page; it only
+      // returns when something needs fixing.
+      const result = await placeOrder(formData);
+      if (result && !result.ok) {
+        if (result.signIn) {
+          router.push(`/signin?next=${encodeURIComponent("/cart")}`);
+          return;
+        }
+        setErrors(result.fieldErrors || {});
+        setFormError(result.error || (result.fieldErrors ? "Please fix the highlighted fields." : "Could not place the order."));
+      }
+    });
   }
 
-  async function handleSubmit(e) {
-    if (pending) {
-      e.preventDefault();
-      return;
-    }
-
-    const phoneErr = validatePhone(phone);
-    if (!name.trim()) {
-      e.preventDefault();
-      setErrors((prev) => ({ ...prev, name: "Name is required" }));
-      return;
-    }
-    if (phoneErr) {
-      e.preventDefault();
-      setErrors((prev) => ({ ...prev, phone: phoneErr }));
-      return;
-    }
-
-    if (isOther && !customLocation.trim()) {
-      e.preventDefault();
-      setErrors((prev) => ({ ...prev, location: "Please specify your neighborhood or landmark" }));
-      return;
-    }
-
-    setPending(true);
-  }
-
-  const finalLocationString = isOther
-    ? customLocation.trim() || "Addis Ababa"
-    : selectedLocation;
-
-  function useCurrentLocation() {
+  function attachCurrentLocation() {
     setLocationMessage("");
     if (!navigator.geolocation) {
       setLocationMessage("This browser does not support location sharing.");
       return;
     }
+    setLocating(true);
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
-        setDeliveryCoordinates({
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-        });
-        setLocationMessage("Delivery pin captured. It will be attached to this order.");
+        setLocating(false);
+        if (!isInAddis(coords.latitude, coords.longitude)) {
+          setDeliveryCoordinates(null);
+          setLocationMessage("Your location appears to be outside Addis Ababa, so it was not attached. Your neighborhood and directions below are enough.");
+          return;
+        }
+        setDeliveryCoordinates({ latitude: coords.latitude, longitude: coords.longitude });
+        clearError("deliveryCoordinates");
+        setLocationMessage(`Location attached (accurate to about ${Math.round(coords.accuracy)} m). Your courier will get directions to this spot.`);
       },
       (error) => {
-        setLocationMessage(error.message || "Unable to read your location.");
+        setLocating(false);
+        setLocationMessage(
+          error.code === error.PERMISSION_DENIED
+            ? "Location permission was denied. That's okay, location is optional."
+            : error.message || "Unable to read your location."
+        );
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
     );
   }
 
   return (
-    <form action={placeOrder} onSubmit={handleSubmit} noValidate className="order-form">
+    <form onSubmit={handleSubmit} noValidate className="order-form">
       <input type="hidden" name="items" value={itemsRaw} />
-      <input type="hidden" name="location" value={finalLocationString} />
-      <input type="hidden" name="customLocation" value={customLocation} />
+      <input type="hidden" name="location" value={selectedLocation} />
       <input type="hidden" name="deliveryLatitude" value={deliveryCoordinates?.latitude ?? ""} />
       <input type="hidden" name="deliveryLongitude" value={deliveryCoordinates?.longitude ?? ""} />
 
@@ -132,7 +114,7 @@ export default function OrderForm({ itemsRaw, initialName = "", initialPhone = "
           value={name}
           onChange={(e) => {
             setName(e.target.value);
-            if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
+            clearError("name");
           }}
           placeholder="Betelhem Abebe"
           required
@@ -140,11 +122,7 @@ export default function OrderForm({ itemsRaw, initialName = "", initialPhone = "
           aria-invalid={Boolean(errors.name)}
           aria-describedby={errors.name ? "name-error" : undefined}
         />
-        {errors.name && (
-          <p id="name-error" className="field-error" role="alert">
-            {errors.name}
-          </p>
-        )}
+        {errors.name && <p id="name-error" className="field-error" role="alert">{errors.name}</p>}
       </div>
 
       <div className="field">
@@ -153,27 +131,22 @@ export default function OrderForm({ itemsRaw, initialName = "", initialPhone = "
           id="phone"
           name="phone"
           type="tel"
-          inputMode="numeric"
+          inputMode="tel"
           value={phone}
           onChange={(e) => {
             setPhone(e.target.value);
-            if (errors.phone) setErrors((prev) => ({ ...prev, phone: null }));
+            clearError("phone");
           }}
-          onBlur={handlePhoneBlur}
+          onBlur={() => phone && setErrors((previous) => ({ ...previous, phone: validatePhone(phone) }))}
           placeholder="0912345678"
           required
           autoComplete="tel"
           aria-invalid={Boolean(errors.phone)}
           aria-describedby={errors.phone ? "phone-error" : undefined}
         />
-        {errors.phone && (
-          <p id="phone-error" className="field-error" role="alert">
-            {errors.phone}
-          </p>
-        )}
+        {errors.phone && <p id="phone-error" className="field-error" role="alert">{errors.phone}</p>}
       </div>
 
-      {/* 10 Addis Ababa Neighborhoods + Custom Location Selector */}
       <div className="field">
         <label htmlFor="location-select">Delivery Neighborhood</label>
         <select
@@ -181,124 +154,110 @@ export default function OrderForm({ itemsRaw, initialName = "", initialPhone = "
           value={selectedLocation}
           onChange={(e) => {
             setSelectedLocation(e.target.value);
-            if (errors.location) setErrors((prev) => ({ ...prev, location: null }));
-          }}
-          style={{
-            width: "100%",
-            padding: "0.75rem 0.9rem",
-            borderRadius: "10px",
-            border: "1px solid var(--border)",
-            backgroundColor: "var(--card-bg)",
-            color: "var(--text)",
-            fontSize: "0.95rem",
+            clearError("location");
           }}
         >
           {DELIVERY_LOCATIONS.map((loc) => (
             <option key={loc.id} value={loc.name}>
-              {loc.name} (+{loc.fee} ETB delivery · area estimate {loc.driveTime})
+              {loc.name} (+{loc.fee} ETB delivery · about {loc.driveTime})
             </option>
           ))}
         </select>
       </div>
 
-      {/* Custom input if "Other Neighborhood" is selected */}
       {isOther && (
         <div className="field">
-          <label htmlFor="custom-location">Enter Your Neighborhood / Landmark</label>
+          <label htmlFor="custom-location">Your Neighborhood / Landmark</label>
           <input
             id="custom-location"
+            name="customLocation"
             type="text"
             value={customLocation}
             onChange={(e) => {
               setCustomLocation(e.target.value);
-              if (errors.location) setErrors((prev) => ({ ...prev, location: null }));
+              clearError("location");
             }}
             placeholder="e.g. Summit Condominium, Gotera, Kality..."
             required
-            autoComplete="street-address"
+            autoComplete="address-level3"
           />
-          {errors.location && (
-            <p className="field-error" role="alert">
-              {errors.location}
-            </p>
-          )}
+          {errors.location && <p className="field-error" role="alert">{errors.location}</p>}
         </div>
       )}
 
       <div className="field">
-        <button type="button" className="btn-secondary" onClick={useCurrentLocation}>
-          {deliveryCoordinates ? "Update delivery map pin" : "Use my location for delivery"}
-        </button>
-        <small style={{ display: "block", marginTop: "0.5rem", color: "var(--muted)" }}>
-          Optional. Your browser will ask permission; this location is attached to this order for courier navigation.
-        </small>
-        {locationMessage && <p role="status" style={{ margin: "0.5rem 0 0", color: "var(--muted)" }}>{locationMessage}</p>}
-        {errors.deliveryCoordinates && <p className="field-error" role="alert">{errors.deliveryCoordinates}</p>}
+        <label htmlFor="address-details">Directions for the courier (optional)</label>
+        <input
+          id="address-details"
+          name="addressDetails"
+          type="text"
+          maxLength={300}
+          value={addressDetails}
+          onChange={(e) => setAddressDetails(e.target.value)}
+          placeholder="Building, floor, gate colour, nearby landmark…"
+          autoComplete="street-address"
+        />
+        {errors.addressDetails && <p className="field-error" role="alert">{errors.addressDetails}</p>}
+      </div>
+
+      <div className="location-attach">
+        <div className="location-attach__text">
+          <strong>Attach your exact location</strong>
+          <span className="optional-tag">Optional</span>
+          <p>Helps the courier find you faster. Your browser will ask for permission.</p>
+        </div>
+        <div className="location-attach__actions">
+          <button type="button" className="btn-secondary" onClick={attachCurrentLocation} disabled={locating}>
+            {locating ? "Finding you…" : deliveryCoordinates ? "Update location" : "Share my location"}
+          </button>
+          {deliveryCoordinates && (
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => {
+                setDeliveryCoordinates(null);
+                setLocationMessage("Location removed.");
+              }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+        {locationMessage && <p role="status" className="location-attach__status">{locationMessage}</p>}
         {deliveryCoordinates && (
-          <small style={{ display: "block", marginTop: "0.4rem", color: "var(--muted)" }}>
-            Delivery pin: {deliveryCoordinates.latitude.toFixed(5)}, {deliveryCoordinates.longitude.toFixed(5)}
-          </small>
+          <a
+            className="location-attach__status"
+            href={`https://www.openstreetmap.org/?mlat=${deliveryCoordinates.latitude}&mlon=${deliveryCoordinates.longitude}#map=17/${deliveryCoordinates.latitude}/${deliveryCoordinates.longitude}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Check the pin on a map
+          </a>
         )}
+        {errors.deliveryCoordinates && <p className="field-error" role="alert">{errors.deliveryCoordinates}</p>}
       </div>
 
-      {/* Driving Time & Location Delivery Fee Breakdown */}
-      <div
-        style={{
-          padding: "1rem",
-          borderRadius: "14px",
-          backgroundColor: "var(--brand-light)",
-          border: "1px solid var(--border)",
-          marginBottom: "1.25rem",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem" }}>
-          <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--brand-dark)" }}>
-            Location Delivery Fee ({matchedLocation.name}):
-          </span>
-          <strong style={{ fontSize: "1rem", color: "var(--brand-dark)" }}>
-            +{currentDeliveryFee} ETB
-          </strong>
+      <div className="checkout-fee-box">
+        <div className="checkout-fee-box__row">
+          <span>Delivery fee ({isOther ? "Other neighborhood" : matchedLocation.name})</span>
+          <strong>+{matchedLocation.fee} ETB</strong>
         </div>
-
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-          <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--brand-dark)" }}>
-            Neighborhood travel-time estimate:
-          </span>
-          <strong style={{ fontSize: "1rem", color: "var(--brand-dark)" }}>
-            {currentDriveTime}
-          </strong>
+        <div className="checkout-fee-box__row">
+          <span>Travel time once the food is ready</span>
+          <strong>{matchedLocation.driveTime}</strong>
         </div>
-
-        <div style={{ fontSize: "0.8rem", color: "var(--muted)", lineHeight: 1.45, borderTop: "1px solid var(--border)", paddingTop: "0.5rem" }}>
-          <strong>Estimate only:</strong> {currentDriveTime} is a static neighborhood range, not a live route or traffic-aware ETA. Driving begins once kitchen preparation finishes.
-        </div>
+        <p>Neighborhood estimate only, not a live traffic ETA.</p>
       </div>
 
-      {/* Price Summary */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "1.25rem",
-          padding: "0.75rem 0",
-          borderTop: "1px solid var(--border)",
-          fontSize: "1.1rem",
-        }}
-      >
+      <div className="checkout-total-row">
         <span>Total (Food + Delivery):</span>
-        <strong style={{ fontSize: "1.25rem", color: "var(--brand-dark)" }}>
-          {grandTotal} ETB
-        </strong>
+        <strong>{grandTotal} ETB</strong>
       </div>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="primary btn-block checkout-submit-btn"
-        aria-busy={pending}
-      >
-        {pending ? "Placing..." : `Place order (${grandTotal} ETB)`}
+      {formError && <p className="field-error" role="alert" style={{ marginBottom: "0.75rem" }}>{formError}</p>}
+
+      <button type="submit" disabled={pending} className="primary btn-block checkout-submit-btn" aria-busy={pending}>
+        {pending ? "Placing your order…" : `Place order (${grandTotal} ETB)`}
       </button>
     </form>
   );

@@ -1,41 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useSession } from "@/components/Providers";
+
+const ROLE_BADGES = {
+  staff: { label: "Kitchen", background: "#2e7d32" },
+  admin: { label: "Admin", background: "var(--brand)" },
+  delivery: { label: "Courier", background: "#2563eb" },
+};
 
 export function AuthStatus() {
-  const pathname = usePathname();
-  const [auth, setAuth] = useState(undefined); // { authenticated, user }
+  const { status, user } = useSession();
 
-  useEffect(() => {
-    let active = true;
-    fetch("/api/auth/me")
-      .then((res) => res.json())
-      .then((data) => {
-        if (!active) return;
-        if (data?.authenticated && data?.user) {
-          setAuth({ authenticated: true, user: data.user });
-        } else {
-          setAuth({ authenticated: false, user: null });
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setAuth({ authenticated: false, user: null });
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [pathname]);
-
-  if (auth === undefined) {
+  if (status === "loading") {
     return <span className="auth-status auth-status--placeholder" aria-hidden="true" />;
   }
 
-  if (!auth.authenticated || !auth.user) {
+  if (!user) {
     return (
       <Link href="/signin" className="btn-ghost">
         Sign in
@@ -43,14 +24,8 @@ export function AuthStatus() {
     );
   }
 
-  const user = auth.user;
-  let rawName = user.name || "User";
-  try {
-    rawName = decodeURIComponent(rawName);
-  } catch {
-    // leave as is
-  }
-  const firstName = rawName.split(" ")[0];
+  const firstName = (user.name || "User").split(" ")[0];
+  const badge = ROLE_BADGES[user.role];
 
   return (
     <Link
@@ -58,12 +33,16 @@ export function AuthStatus() {
       className="btn-ghost"
       style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
     >
+      {user.photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={user.photo} alt="" width={22} height={22} style={{ borderRadius: "50%", objectFit: "cover" }} />
+      ) : null}
       <span>Hi, {firstName}</span>
-      {user.role === "staff" && (
+      {badge && (
         <span
           style={{
             fontSize: "0.68rem",
-            background: "#2e7d32",
+            background: badge.background,
             color: "white",
             padding: "0.1rem 0.45rem",
             borderRadius: "999px",
@@ -72,39 +51,7 @@ export function AuthStatus() {
             textTransform: "uppercase",
           }}
         >
-          Staff
-        </span>
-      )}
-      {user.role === "admin" && (
-        <span
-          style={{
-            fontSize: "0.68rem",
-            background: "var(--brand)",
-            color: "white",
-            padding: "0.1rem 0.45rem",
-            borderRadius: "999px",
-            fontWeight: "750",
-            letterSpacing: "0.03em",
-            textTransform: "uppercase",
-          }}
-        >
-          Admin
-        </span>
-      )}
-      {user.role === "delivery" && (
-        <span
-          style={{
-            fontSize: "0.68rem",
-            background: "#2563eb",
-            color: "white",
-            padding: "0.1rem 0.45rem",
-            borderRadius: "999px",
-            fontWeight: "750",
-            letterSpacing: "0.03em",
-            textTransform: "uppercase",
-          }}
-        >
-          Courier
+          {badge.label}
         </span>
       )}
     </Link>

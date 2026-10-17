@@ -1,8 +1,12 @@
 # Supabase Authentication Setup
 
-The app uses Supabase Auth for email/password sign-in and a `public.profiles`
-row for each account's trusted application role. New signups always receive the
-`customer` role. Roles are not taken from browser-submitted signup fields.
+The app uses Supabase Auth for customer email/password sign-in and Google
+sign-in, and a `public.profiles` row for each account's application role. New
+signups always receive the `customer` role. Roles are not taken from
+browser-submitted signup fields.
+
+Kitchen staff, couriers and the admin use the app's own local accounts (see
+[AUTH.md](./AUTH.md)); create them at `/admin/staff` rather than in Supabase.
 
 ## Configure the project
 
@@ -26,14 +30,30 @@ row for each account's trusted application role. New signups always receive the
 5. In the Supabase SQL Editor, run
    [`supabase/migrations/20261017000000_profiles_auth.sql`](./supabase/migrations/20261017000000_profiles_auth.sql).
    It creates the role profile table, row-level security policy, and a trigger
-   that creates customer-only profiles for new Auth users.
+   that creates customer-only profiles for new Auth users. Then run
+   [`supabase/migrations/20261017120000_profiles_google_names.sql`](./supabase/migrations/20261017120000_profiles_google_names.sql)
+   so Google accounts get their real display name.
 6. Restart the app after saving `.env.local`:
 
    ```powershell
    npm run dev -- --hostname 0.0.0.0 --port 3001
    ```
 
-## Assign privileged roles
+## Enable Google sign-in
+
+1. In Google Cloud Console, create an OAuth client (type **Web application**).
+   Add `https://your-project-ref.supabase.co/auth/v1/callback` as an authorized
+   redirect URI.
+2. In Supabase, open Authentication > Providers > Google, enable it and paste
+   the client ID and secret.
+3. In Authentication > URL Configuration, add every origin you use to Redirect
+   URLs, for example `http://localhost:3000/**` and your production URL with
+   `/**`. The app sends users back to `<current origin>/auth/callback`.
+
+The **Continue with Google** button opens Google's account chooser every time,
+so people pick which Google account to use.
+
+## Assign privileged roles (optional)
 
 First create an account through the app's customer registration form and
 complete email confirmation if it is enabled. Then, in the Supabase SQL Editor,
@@ -55,9 +75,8 @@ change their role.
 
 ## Passwords and existing local accounts
 
-Sign-in and customer registration accept passwords from 6 to 256 characters.
-Six-character passwords are weak; choose a longer, unique password when
-possible. Supabase Auth handles password verification and session tokens.
+Customer registration requires passwords of at least 8 characters. Supabase
+Auth handles password verification and session tokens for customers.
 
 Accounts in the old local JSON authentication store are not automatically
 imported. Users must register with Supabase; existing local order records are

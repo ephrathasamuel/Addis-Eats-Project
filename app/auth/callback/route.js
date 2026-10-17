@@ -7,7 +7,7 @@ const OTP_TYPES = new Set(["email", "email_change", "invite", "magiclink", "reco
 function safeDestination(value) {
   return typeof value === "string" && value.startsWith("/") && !value.startsWith("//")
     ? value
-    : "/orders";
+    : "/menu";
 }
 
 export async function GET(request) {
@@ -15,6 +15,13 @@ export async function GET(request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.redirect(
       new URL("/signin?error=Supabase+authentication+is+not+configured.", url.origin)
+    );
+  }
+
+  // Google / OAuth errors (e.g. the user closed the account chooser).
+  if (url.searchParams.get("error")) {
+    return NextResponse.redirect(
+      new URL("/signin?error=Google+sign-in+was+cancelled+or+failed.+Please+try+again.", url.origin)
     );
   }
 
@@ -37,7 +44,7 @@ export async function GET(request) {
 
   if (error) {
     return NextResponse.redirect(
-      new URL("/signin?error=Email+confirmation+failed.+Request+a+new+confirmation+email.", url.origin)
+      new URL("/signin?error=Sign-in+link+is+invalid+or+expired.+Please+try+again.", url.origin)
     );
   }
 

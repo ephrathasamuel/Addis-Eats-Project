@@ -17,7 +17,7 @@ export default async function AdminFinancesPage() {
   const { ledger, totals } = getFinancialLedger(allOrders);
 
   return (
-    <main style={{ maxWidth: "1140px", margin: "2rem auto", padding: "0 1.5rem 5rem" }}>
+    <div className="page-wide">
       {/* Top Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem", marginBottom: "2rem" }}>
         <div>
@@ -166,6 +166,6 @@ export default async function AdminFinancesPage() {
           </tbody>
         </table>
       </section>
-    </main>
+    </div>
   );
 }

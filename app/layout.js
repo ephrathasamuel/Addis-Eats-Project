@@ -2,6 +2,7 @@ import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Providers } from "@/components/Providers";
+import { getSession } from "@/lib/session";
 
 export const metadata = {
   title: "Addis Eats",
@@ -33,7 +34,14 @@ const themeInitScript = `
   })();
 `;
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  // Resolved on the server so role-aware UI (header links, Add to cart vs.
+  // sold-out toggles) is correct on the very first paint.
+  const session = await getSession();
+  const initialUser = session
+    ? { id: session.id, name: session.name, email: session.email, role: session.role, photo: session.photo || "" }
+    : null;
+
   return (
     // suppressHydrationWarning is scoped to this one element only (it does
     // not suppress warnings any deeper in the tree). It's needed here
@@ -47,7 +55,7 @@ export default function RootLayout({ children }) {
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
-        <Providers>
+        <Providers initialUser={initialUser}>
           <Header />
           <main>{children}</main>
           <Footer />

@@ -6,11 +6,13 @@ import {
 } from "@/lib/orders";
 import { getSession } from "@/lib/session";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request, { params }) {
   const { id } = await params;
   const user = await getSession();
 
-  const order = getOrderForUser(id, user?.id, user?.role);
+  const order = user ? getOrderForUser(id, user.id, user.role) : null;
 
   if (!order) {
     return NextResponse.json({ error: "Order not found." }, { status: 404 });

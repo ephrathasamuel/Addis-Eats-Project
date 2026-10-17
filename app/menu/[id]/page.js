@@ -1,13 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getDishById, getAllDishIds } from "@/lib/dishes";
+import { getDishById } from "@/lib/dishes";
 import { AddToCartButton } from "@/components/AddToCartButton";
 import { DishImage } from "@/components/DishImage";
 import { FavoriteButton } from "@/components/FavoriteButton";
-
-export function generateStaticParams() {
-  return getAllDishIds().map((id) => ({ id }));
-}
 
 // Day 44: Dynamic metadata generation per dish
 export async function generateMetadata({ params }) {

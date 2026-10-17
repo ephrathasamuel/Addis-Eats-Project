@@ -18,7 +18,7 @@ export function DishImage({ dish, size = "card", priority = false }) {
       >
         <Image
           src={dish.image}
-          alt={`${dish.name}, a traditional ${dish.category.toLowerCase()} dish`}
+          alt={`${dish.name}, a ${String(dish.category || "").toLowerCase()} dish`}
           fill
           priority={priority}
           sizes={
@@ -27,6 +27,8 @@ export function DishImage({ dish, size = "card", priority = false }) {
               : "(max-width: 640px) calc(100vw - 32px), (max-width: 1024px) 50vw, 320px"
           }
           style={{ objectFit: "cover" }}
+          // Admin-uploaded photos are already resized in the browser and served from /media.
+          unoptimized={dish.image.startsWith("/media/") || dish.image.startsWith("data:")}
           onError={() => setFailed(true)}
         />
       </div>
@@ -38,10 +40,10 @@ export function DishImage({ dish, size = "card", priority = false }) {
       className={`dish-image dish-image--${size} dish-image--fallback`}
       style={{
         height,
-        background: `linear-gradient(135deg, ${dish.color} 0%, ${shade(dish.color, -22)} 100%)`,
+        background: `linear-gradient(135deg, ${dish.color || "#7c5cff"} 0%, ${shade(dish.color || "#7c5cff", -22)} 100%)`,
       }}
       role="img"
-      aria-label={`${dish.name}, a traditional ${dish.category.toLowerCase()} dish`}
+      aria-label={`${dish.name}, a ${String(dish.category || "").toLowerCase()} dish`}
     >
       <span className="dish-image__monogram">{dish.name.charAt(0)}</span>
     </div>

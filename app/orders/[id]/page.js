@@ -10,12 +10,12 @@ export default async function OrderPage({ params }) {
   const user = await getSession();
   if (!user) redirect(`/signin?next=${encodeURIComponent(`/orders/${id}`)}`);
 
-  const initial = getOrderForUser(id, user.id);
+  const initial = getOrderForUser(id, user.id, user.role === "admin" ? "admin" : "customer");
   if (!initial) notFound();
 
   return (
-    <main style={{ padding: "2rem 1.5rem 4rem" }}>
+    <div>
       <OrderStatus id={id} initial={toOrderClientData(initial)} />
-    </main>
+    </div>
   );
 }

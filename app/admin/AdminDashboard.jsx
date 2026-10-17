@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   toggleSoldOutAction,
   removeDishAction,
@@ -11,8 +12,8 @@ import {
   addDailyExpenseAction,
   adminEditOrderAction,
 } from "@/app/actions";
-import { getFinancialLedger } from "@/lib/finances";
-import { getDishPopularityByLocation, DELIVERY_LOCATIONS } from "@/lib/orders";
+import { DELIVERY_LOCATIONS } from "@/lib/locations";
+import { ImagePicker } from "@/components/ImagePicker";
 
 const GALLERY_IMAGES = [
   { label: "Doro Wat", path: "/images/food/doro-wat.jpg" },
@@ -24,19 +25,28 @@ const GALLERY_IMAGES = [
   { label: "Gomen Wat", path: "/images/food/gomen-wat.jpg" },
   { label: "Kik Alicha", path: "/images/food/kik-alicha.jpg" },
   { label: "Crispy Derek Tibs", path: "/images/food/derek-tibs.jpg" },
+  { label: "Spicy Beef Key Wat", path: "/images/food/key-wat.jpg" },
+  { label: "Crispy Asa Tibs", path: "/images/food/asa-tibs.jpg" },
   { label: "Cheeseburger", path: "/images/food/cheeseburger.jpg" },
   { label: "Wood-Fired Pizza", path: "/images/food/margherita-pizza.jpg" },
   { label: "Chicken Alfredo", path: "/images/food/chicken-alfredo.jpg" },
   { label: "Ribeye Steak", path: "/images/food/ribeye-steak.jpg" },
+  { label: "BBQ Beef Ribs", path: "/images/food/bbq-ribs.jpg" },
+  { label: "Chicken Caesar Salad", path: "/images/food/caesar-salad.jpg" },
   { label: "Buna Ceremony", path: "/images/food/buna-ceremony.jpg" },
   { label: "Spiced Chai", path: "/images/food/spiced-chai.jpg" },
   { label: "Fresh Spris", path: "/images/food/spris-juice.jpg" },
   { label: "Mango Passion Juice", path: "/images/food/mango-passion.jpg" },
   { label: "Besso Smoothie", path: "/images/food/besso-smoothie.jpg" },
+  { label: "Lemon Mint Cooler", path: "/images/food/lemon-mint.jpg" },
+  { label: "Telba Drink", path: "/images/food/telba-drink.jpg" },
   { label: "Tej Wine", path: "/images/food/tej.jpg" },
 ];
 
-export function AdminDashboard({ initialDishes, initialOrders }) {
+// ledgerData and rankedFavorites are computed on the server from the real
+// order and expense stores and refreshed with router.refresh().
+export function AdminDashboard({ initialDishes, initialOrders, ledgerData, rankedFavorites, mustChangePassword }) {
+  const router = useRouter();
   const [dishes, setDishes] = useState(initialDishes);
   const [orders, setOrders] = useState(initialOrders);
   const [activeTab, setActiveTab] = useState("inventory"); // "inventory" | "favorites" | "analytics" | "timings"
@@ -54,8 +64,7 @@ export function AdminDashboard({ initialDishes, initialOrders }) {
   const [newSpicy, setNewSpicy] = useState(false);
   const [newTag, setNewTag] = useState("Chef's Special");
   const [newDescription, setNewDescription] = useState("");
-  const [selectedImage, setSelectedImage] = useState("/images/food/doro-wat.jpg");
-  const [customImage, setCustomImage] = useState("");
+  const [newImage, setNewImage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Daily Expense insertion state
@@ -142,7 +151,7 @@ export function AdminDashboard({ initialDishes, initialOrders }) {
     formData.set("spicy", newSpicy ? "true" : "false");
     formData.set("tag", newTag.trim() || "Chef's Special");
     formData.set("description", newDescription.trim() || "Freshly cooked specialty.");
-    formData.set("image", customImage.trim() || selectedImage);
+    formData.set("image", newImage);
 
     const res = await addDishAction(formData);
     setIsSubmitting(false);
@@ -153,7 +162,7 @@ export function AdminDashboard({ initialDishes, initialOrders }) {
       setNewDishName("");
       setNewPrice("");
       setNewDescription("");
-      setCustomImage("");
+      setNewImage("");
       setShowAddDish(false);
     } else {
       alert(res?.error || "Failed to add dish.");
@@ -173,7 +182,7 @@ export function AdminDashboard({ initialDishes, initialOrders }) {
     formData.set("spicy", editingDish.spicy ? "true" : "false");
     formData.set("tag", editingDish.tag || "");
     formData.set("description", editingDish.description || "");
-    formData.set("image", editingDish.image || "/images/food/doro-wat.jpg");
+    formData.set("image", editingDish.image || "");
 
     const res = await editDishAction(formData);
     setIsSubmitting(false);
@@ -208,6 +217,7 @@ export function AdminDashboard({ initialDishes, initialOrders }) {
       setExpenseRaw("");
       setExpenseTransport("");
       setExpenseNote("");
+      router.refresh();
     } else {
       alert(res?.error || "Failed to save daily expense.");
     }
@@ -235,11 +245,7 @@ export function AdminDashboard({ initialDishes, initialOrders }) {
     }
   };
 
-  // Financial calculations
-  const { ledger, recent5Days, totals } = getFinancialLedger(orders);
-
-  // Favorites with location rankings
-  const rankedFavorites = getDishPopularityByLocation();
+  const { ledger, recent5Days, totals } = ledgerData;
 
   const totalDishes = dishes.filter((d) => !d.isRemoved).length;
   return (
@@ -269,11 +275,21 @@ export function AdminDashboard({ initialDishes, initialOrders }) {
         </div>
 
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+          <Link href="/admin/staff" className="btn-primary" style={{ fontSize: "0.88rem", padding: "0.5rem 1rem" }}>
+            Manage staff
+          </Link>
           <Link href="/menu" className="btn-secondary" style={{ fontSize: "0.88rem", padding: "0.5rem 1rem" }}>
             Customer Menu
           </Link>
         </div>
       </div>
+
+      {mustChangePassword && (
+        <div className="board__hint" role="alert" style={{ border: "1px solid #d97706" }}>
+          <strong>Security:</strong> this admin account still uses the default password.{" "}
+          <Link href="/profile">Change it now</Link> before anyone else can guess it.
+        </div>
+      )}
 
       {notification && (
         <div
@@ -419,7 +435,7 @@ export function AdminDashboard({ initialDishes, initialOrders }) {
                       <option value="Traditional">Traditional Ethiopian</option>
                       <option value="Western">Western Cuisine</option>
                       <option value="Breakfast">Breakfast &amp; Bites</option>
-                      <option value="Beverages">Beverages &amp; Coffee</option>
+                      <option value="Drinks">Drinks &amp; Coffee</option>
                       <option value="Dessert">Dessert</option>
                     </select>
                   </div>
@@ -472,19 +488,18 @@ export function AdminDashboard({ initialDishes, initialOrders }) {
                   </label>
                 </div>
 
-                {/* Photo Selector */}
-                <div style={{ marginBottom: "1.25rem" }}>
-                  <label style={{ display: "block", marginBottom: "0.4rem", fontWeight: "600", fontSize: "0.9rem" }}>
-                    Select Photo
-                  </label>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(68px, 1fr))", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                {/* Photo: attach, paste or drag a picture, or reuse a stock photo */}
+                <ImagePicker label="Dish photo" value={newImage} onChange={setNewImage} listenToWindowPaste />
+                <details style={{ marginBottom: "1.25rem" }}>
+                  <summary style={{ cursor: "pointer", fontSize: "0.88rem", color: "var(--muted)" }}>Or pick a stock photo</summary>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(68px, 1fr))", gap: "0.5rem", marginTop: "0.5rem" }}>
                     {GALLERY_IMAGES.map((img) => (
                       <button
                         key={img.path}
                         type="button"
-                        onClick={() => { setSelectedImage(img.path); setCustomImage(""); }}
+                        onClick={() => setNewImage(img.path)}
                         style={{
-                          border: selectedImage === img.path && !customImage ? "3px solid var(--brand)" : "1px solid var(--border)",
+                          border: newImage === img.path ? "3px solid var(--brand)" : "1px solid var(--border)",
                           borderRadius: "8px",
                           overflow: "hidden",
                           padding: 0,
@@ -494,18 +509,11 @@ export function AdminDashboard({ initialDishes, initialOrders }) {
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={img.path} alt={img.label} style={{ width: "100%", height: "48px", objectFit: "cover", display: "block" }} />
-                        <span style={{ fontSize: "0.6rem", display: "block", textAlign: "center", background: "var(--card-bg)" }}>{img.label}</span>
+                        <span style={{ fontSize: "0.6rem", display: "block", textAlign: "center", background: "var(--card-bg)", color: "var(--text)" }}>{img.label}</span>
                       </button>
                     ))}
                   </div>
-                  <input
-                    type="text"
-                    value={customImage}
-                    onChange={(e) => setCustomImage(e.target.value)}
-                    placeholder="Or enter custom image URL (/images/...)"
-                    style={{ fontSize: "0.85rem" }}
-                  />
-                </div>
+                </details>
 
                 <button
                   type="submit"
@@ -579,7 +587,7 @@ export function AdminDashboard({ initialDishes, initialOrders }) {
                         <option value="Traditional">Traditional</option>
                         <option value="Western">Western</option>
                         <option value="Breakfast">Breakfast</option>
-                        <option value="Beverages">Beverages</option>
+                        <option value="Drinks">Drinks</option>
                         <option value="Dessert">Dessert</option>
                       </select>
                     </div>
@@ -627,14 +635,12 @@ export function AdminDashboard({ initialDishes, initialOrders }) {
                     </label>
                   </div>
 
-                  <div className="field">
-                    <label>Photo URL</label>
-                    <input
-                      type="text"
-                      value={editingDish.image || ""}
-                      onChange={(e) => setEditingDish({ ...editingDish, image: e.target.value })}
-                    />
-                  </div>
+                  <ImagePicker
+                    label="Dish photo"
+                    value={editingDish.image || ""}
+                    onChange={(image) => setEditingDish({ ...editingDish, image })}
+                    listenToWindowPaste
+                  />
 
                   <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "1.25rem" }}>
                     <button

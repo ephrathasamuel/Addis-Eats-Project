@@ -1,19 +1,57 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 
 const CartContext = createContext(null);
 const FavoritesContext = createContext(null);
+const SessionContext = createContext(null);
 
 const CART_KEY = "addis-eats-cart";
 const FAVORITES_KEY = "addis-eats-favorites";
 
-export function Providers({ children }) {
+export function Providers({ children, initialUser = null }) {
   return (
-    <CartProvider>
-      <FavoritesProvider>{children}</FavoritesProvider>
-    </CartProvider>
+    <SessionProvider initialUser={initialUser}>
+      <CartProvider>
+        <FavoritesProvider>{children}</FavoritesProvider>
+      </CartProvider>
+    </SessionProvider>
   );
+}
+
+// Who is signed in. Seeded by the root layout on the server, then re-checked
+// on every navigation so the header and role-aware buttons follow sign-in/out.
+function SessionProvider({ children, initialUser }) {
+  const pathname = usePathname();
+  const [state, setState] = useState({ status: "ready", user: initialUser });
+
+  useEffect(() => {
+    setState({ status: "ready", user: initialUser });
+  }, [initialUser]);
+
+  const refresh = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      const data = await response.json();
+      setState({ status: "ready", user: data?.authenticated ? data.user : null });
+    } catch {
+      setState((previous) => ({ ...previous, status: "ready" }));
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [pathname, refresh]);
+
+  const value = useMemo(() => ({ ...state, refresh }), [state, refresh]);
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+}
+
+export function useSession() {
+  const ctx = useContext(SessionContext);
+  if (!ctx) throw new Error("useSession must be used inside <Providers>");
+  return ctx;
 }
 
 function CartProvider({ children }) {
@@ -25,7 +63,10 @@ function CartProvider({ children }) {
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(CART_KEY);
-      if (saved) setItems(JSON.parse(saved));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setItems(parsed);
+      }
     } catch {
       // ignore corrupt storage
     }
@@ -41,12 +82,12 @@ function CartProvider({ children }) {
     }
   }, [items, hydrated]);
 
-  function addItem(dish) {
+  const addItem = useCallback((dish) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.id === dish.id);
       if (existing) {
         return prev.map((i) =>
-          i.id === dish.id ? { ...i, qty: i.qty + 1 } : i
+          i.id === dish.id ? { ...i, qty: Math.min(50, i.qty + 1) } : i
         );
       }
       return [
@@ -61,35 +102,33 @@ function CartProvider({ children }) {
         },
       ];
     });
-  }
+  }, []);
 
-  function updateQty(id, newQty) {
-    if (newQty <= 0) {
-      removeItem(id);
-      return;
-    }
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, qty: newQty } : i))
-    );
-  }
-
-  function removeItem(id) {
+  const removeItem = useCallback((id) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
-  }
+  }, []);
 
-  function clearCart() {
-    setItems([]);
-  }
+  const updateQty = useCallback((id, newQty) => {
+    setItems((prev) =>
+      newQty <= 0
+        ? prev.filter((i) => i.id !== id)
+        : prev.map((i) => (i.id === id ? { ...i, qty: Math.min(50, newQty) } : i))
+    );
+  }, []);
+
+  // Returns the same empty array when already empty so callers can't loop.
+  const clearCart = useCallback(() => {
+    setItems((prev) => (prev.length === 0 ? prev : []));
+  }, []);
 
   const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
 
-  return (
-    <CartContext.Provider
-      value={{ items, addItem, updateQty, removeItem, clearCart, total, hydrated }}
-    >
-      {children}
-    </CartContext.Provider>
+  const value = useMemo(
+    () => ({ items, addItem, updateQty, removeItem, clearCart, total, hydrated }),
+    [items, addItem, updateQty, removeItem, clearCart, total, hydrated]
   );
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
 export function useCart() {
@@ -107,7 +146,10 @@ function FavoritesProvider({ children }) {
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(FAVORITES_KEY);
-      if (saved) setFavorites(JSON.parse(saved));
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setFavorites(parsed);
+      }
     } catch {
       // ignore corrupt storage
     }
@@ -123,21 +165,20 @@ function FavoritesProvider({ children }) {
     }
   }, [favorites, hydrated]);
 
-  function toggleFavorite(id) {
+  const toggleFavorite = useCallback((id) => {
     setFavorites((prev) =>
       prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
     );
-  }
+  }, []);
 
-  function isFavorite(id) {
-    return favorites.includes(id);
-  }
+  const isFavorite = useCallback((id) => favorites.includes(id), [favorites]);
 
-  return (
-    <FavoritesContext.Provider value={{ favorites, toggleFavorite, isFavorite, hydrated }}>
-      {children}
-    </FavoritesContext.Provider>
+  const value = useMemo(
+    () => ({ favorites, toggleFavorite, isFavorite, hydrated }),
+    [favorites, toggleFavorite, isFavorite, hydrated]
   );
+
+  return <FavoritesContext.Provider value={value}>{children}</FavoritesContext.Provider>;
 }
 
 export function useFavorites() {

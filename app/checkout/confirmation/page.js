@@ -44,7 +44,7 @@ export default async function ConfirmationPage({ searchParams }) {
           </div>
           <div className="cooking-banner-text">
             <strong>Kitchen Notification</strong>
-            <p>Your food is being cooked and it will be on the way soon.</p>
+            <p>Your order is in the kitchen queue. A cook will pick it up shortly.</p>
           </div>
         </div>
 
@@ -64,7 +64,7 @@ export default async function ConfirmationPage({ searchParams }) {
           </div>
           <div className="confirmation-detail-item">
             <span className="confirmation-detail-label">Status</span>
-            <strong className="confirmation-detail-val status-badge-pill">Preparing in Kitchen</strong>
+            <strong className="confirmation-detail-val status-badge-pill">Sent to the kitchen</strong>
           </div>
         </div>
 

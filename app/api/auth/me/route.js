@@ -20,6 +20,7 @@ export async function GET() {
       name: user.name,
       email: user.email,
       role: user.role,
+      photo: user.photo || "",
     },
   }, {
     headers: { "Cache-Control": "private, no-store" },

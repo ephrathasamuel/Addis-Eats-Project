@@ -28,7 +28,7 @@ export function SearchBox() {
           name="search"
           type="search"
           aria-label="Search dishes"
-          placeholder="Search dishes (e.g. Doro Wat, Shiro, Burger, Pizza)..."
+          placeholder="Search dishes"
           value={term}
           onChange={(e) => setTerm(e.target.value)}
           style={{

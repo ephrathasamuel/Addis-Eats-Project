@@ -4,8 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
 import { etb, when, relative } from "@/lib/format";
 import Link from "next/link";
+import { Avatar } from "@/components/Modal";
 
-export default function DeliveryMap({ orderId, initialOrder }) {
+// viewerRole decides the footer links: couriers go back to their board,
+// customers to their orders; nobody on the courier side sees "Order again".
+export default function DeliveryMap({ orderId, initialOrder, viewerRole = "customer" }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const courierMarkerRef = useRef(null);
@@ -26,54 +29,54 @@ export default function DeliveryMap({ orderId, initialOrder }) {
       ? [initialOrder.deliveryCoordinates.latitude, initialOrder.deliveryCoordinates.longitude]
       : null,
     location: initialOrder.location,
-    neighbourhood: initialOrder.neighbourhood,
   });
   const deliveryCoordinates = initialOrder.deliveryCoordinates;
   const deliveryPos = deliveryCoordinates
     ? [deliveryCoordinates.latitude, deliveryCoordinates.longitude]
     : null;
 
-  // 1. Consume Server-Sent Events (SSE) stream via EventSource
+  // 1. Consume Server-Sent Events (SSE), reconnecting after network hiccups
+  //    until the order is delivered or cancelled.
   useEffect(() => {
-    const eventSource = new EventSource(`/api/orders/${orderId}/stream`);
+    let eventSource = null;
+    let retryTimer = null;
+    let finished = false;
 
-    eventSource.onopen = () => {
-      setConnected(true);
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        setOrder((prev) => ({ ...prev, ...payload }));
-
-        if (
-          payload.courierLocation &&
-          Number.isFinite(payload.courierLocation.latitude) &&
-          Number.isFinite(payload.courierLocation.longitude)
-        ) {
-          setCourierPos([
-            payload.courierLocation.latitude,
-            payload.courierLocation.longitude,
-          ]);
+    function connect() {
+      eventSource = new EventSource(`/api/orders/${orderId}/stream`);
+      eventSource.onopen = () => setConnected(true);
+      eventSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          setOrder((prev) => ({ ...prev, ...payload }));
+          if (
+            payload.courierLocation &&
+            Number.isFinite(payload.courierLocation.latitude) &&
+            Number.isFinite(payload.courierLocation.longitude)
+          ) {
+            setCourierPos([payload.courierLocation.latitude, payload.courierLocation.longitude]);
+          }
+          if (payload.status === "delivered" || payload.status === "cancelled") {
+            finished = true;
+            eventSource.close();
+            setConnected(false);
+          }
+        } catch (err) {
+          console.error("SSE parse error", err);
         }
+      };
+      eventSource.onerror = () => {
+        setConnected(false);
+        eventSource.close();
+        if (!finished) retryTimer = setTimeout(connect, 5000);
+      };
+    }
 
-        // Close stream upon delivery or cancellation
-        if (payload.status === "delivered" || payload.status === "cancelled") {
-          eventSource.close();
-          setConnected(false);
-        }
-      } catch (err) {
-        console.error("SSE parse error", err);
-      }
-    };
-
-    eventSource.onerror = () => {
-      setConnected(false);
-      eventSource.close();
-    };
-
+    connect();
     return () => {
-      eventSource.close();
+      finished = true;
+      clearTimeout(retryTimer);
+      eventSource?.close();
     };
   }, [orderId]);
 
@@ -120,7 +123,7 @@ export default function DeliveryMap({ orderId, initialOrder }) {
         }
         if (initialDeliveryPos) {
           const destinationLabel = document.createElement("strong");
-          destinationLabel.textContent = `Delivery destination: ${initialMapData.current.neighbourhood || initialMapData.current.location || "Customer address"}`;
+          destinationLabel.textContent = `Delivery destination: ${initialMapData.current.location || "Customer address"}`;
           L.marker(initialDeliveryPos, { icon: deliveryIcon })
             .addTo(map)
             .bindPopup(destinationLabel);
@@ -152,9 +155,9 @@ export default function DeliveryMap({ orderId, initialOrder }) {
   }, [courierPos]);
 
   return (
-    <div style={{ maxWidth: "1040px", margin: "1rem auto" }}>
+    <div>
       {/* Header and Connection status indicator */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.5rem" }}>
         <div>
           <h1 style={{ margin: 0 }}>Order Delivery Map #{order.id}</h1>
           <p style={{ margin: "0.25rem 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
@@ -174,12 +177,25 @@ export default function DeliveryMap({ orderId, initialOrder }) {
             }}
           />
           <span style={{ fontSize: "0.85rem", color: "var(--muted)", fontWeight: "500" }}>
-            {connected ? "Tracking updates connected" : "Tracking updates disconnected"}
+            {connected ? "Live updates on" : order.status === "delivered" || order.status === "cancelled" ? "Order finished" : "Reconnecting…"}
           </span>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: "1.5rem" }}>
+      {viewerRole === "customer" && order.courier && (
+        <div className="courier-card">
+          <Avatar name={order.courier.name} photo={order.courier.photo} size={56} />
+          <div>
+            <div className="courier-card__label">{order.status === "delivered" ? "Delivered by" : "Your courier"}</div>
+            <div className="courier-card__name">{order.courier.name}</div>
+            {order.courier.phone && order.status !== "delivered" && (
+              <a href={`tel:${order.courier.phone}`} style={{ fontWeight: 650 }}>Call {order.courier.phone}</a>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="track-grid">
         {/* Leaflet Map with Explicit Height */}
         <div
           style={{
@@ -192,7 +208,7 @@ export default function DeliveryMap({ orderId, initialOrder }) {
         >
           <div
             ref={mapContainerRef}
-            style={{ height: "420px", width: "100%", background: "var(--brand-light)" }}
+            style={{ height: "min(70vh, 560px)", minHeight: "360px", width: "100%", background: "var(--brand-light)" }}
           />
         </div>
 
@@ -224,8 +240,13 @@ export default function DeliveryMap({ orderId, initialOrder }) {
                 <strong>Customer:</strong> {order.name}
               </p>
               <p style={{ margin: "0.4rem 0" }}>
-                <strong>Destination:</strong> {order.neighbourhood || "Bole"}, Addis Ababa
+                <strong>Destination:</strong> {order.location || "Addis Ababa"}, Addis Ababa
               </p>
+              {order.addressDetails && (
+                <p style={{ margin: "0.4rem 0" }}>
+                  <strong>Directions:</strong> {order.addressDetails}
+                </p>
+              )}
               <p style={{ margin: "0.4rem 0" }}>
                 <strong>Courier GPS:</strong>{" "}
                 {courierPos
@@ -265,13 +286,20 @@ export default function DeliveryMap({ orderId, initialOrder }) {
             </div>
           </div>
 
-          <div style={{ marginTop: "1.5rem", display: "flex", gap: "0.75rem" }}>
-            <Link href="/orders" className="btn-ghost" style={{ fontSize: "0.85rem" }}>
-              ← All Orders
-            </Link>
-            <Link href="/menu" className="btn-primary" style={{ fontSize: "0.85rem" }}>
-              Order Again
-            </Link>
+          <div style={{ marginTop: "1.5rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+            {viewerRole === "delivery" ? (
+              <Link href="/delivery" className="btn-ghost" style={{ fontSize: "0.85rem" }}>
+                ← Back to delivery board
+              </Link>
+            ) : viewerRole === "admin" ? (
+              <Link href="/delivery" className="btn-ghost" style={{ fontSize: "0.85rem" }}>
+                ← Delivery overview
+              </Link>
+            ) : (
+              <Link href={`/orders/${order.id}`} className="btn-ghost" style={{ fontSize: "0.85rem" }}>
+                ← Order details
+              </Link>
+            )}
           </div>
         </div>
       </div>

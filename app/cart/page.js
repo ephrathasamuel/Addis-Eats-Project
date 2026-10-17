@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/components/Providers";
-import { getDishByIdSync, getDishByNameSync } from "@/lib/dishes";
 
 export default function CartPage() {
   const { items, updateQty, removeItem, total, hydrated } = useCart();
@@ -18,8 +17,6 @@ export default function CartPage() {
     );
   }
 
-  const deliveryFee = items.length > 0 ? (total > 600 ? 0 : 50) : 0;
-  const grandTotal = total + deliveryFee;
 
   if (items.length === 0) {
     return (
@@ -44,18 +41,8 @@ export default function CartPage() {
 
   function goToCheckout() {
     const params = new URLSearchParams();
-    const enriched = items.map((item) => {
-      const dish = getDishByIdSync(item.id) || getDishByNameSync(item.name);
-      return {
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        qty: item.qty,
-        image: item.image || dish?.image || "/images/food/doro-wat.jpg",
-        category: item.category || dish?.category || "Traditional",
-      };
-    });
-    params.set("items", JSON.stringify(enriched));
+    // Only ids and quantities travel; checkout re-prices from the live menu.
+    params.set("items", JSON.stringify(items.map(({ id, qty }) => ({ id, qty }))));
     router.push(`/checkout?${params.toString()}`);
   }
 
@@ -65,7 +52,7 @@ export default function CartPage() {
         <div>
           <h1 className="checkout-title">Your Cart</h1>
           <p className="checkout-subtitle">
-            Review your selected dishes | Adjust portions | Free delivery for orders over 600 ETB
+            Review your selected dishes | Adjust portions | Delivery fee depends on your neighborhood
           </p>
         </div>
       </div>
@@ -82,8 +69,7 @@ export default function CartPage() {
 
           <div className="checkout-dish-list">
             {items.map((item) => {
-              const dish = getDishByIdSync(item.id) || getDishByNameSync(item.name);
-              const imageUrl = item.image || dish?.image || "/images/food/doro-wat.jpg";
+              const imageUrl = item.image || "/images/food/hero-feast.jpg";
 
               return (
                 <article key={item.id} className="cart-dish-card">
@@ -97,6 +83,7 @@ export default function CartPage() {
                         height={76}
                         className="cart-dish-thumb"
                         style={{ objectFit: "cover" }}
+                        unoptimized={imageUrl.startsWith("/media/")}
                       />
                     </div>
                     <div className="cart-dish-info">
@@ -179,29 +166,15 @@ export default function CartPage() {
             <div className="breakdown-row breakdown-row--multiline">
               <div className="breakdown-label">
                 <span>Delivery Fee</span>
-                <small className="breakdown-sub">(Addis Ababa)</small>
+                <small className="breakdown-sub">(set by neighborhood at checkout)</small>
               </div>
               <div className="breakdown-val">
-                {deliveryFee === 0 ? (
-                  <>
-                    <span>FREE</span>
-                    <small className="breakdown-sub">(Orders &gt; 600 ETB)</small>
-                  </>
-                ) : (
-                  <span>{deliveryFee} ETB</span>
-                )}
+                <span>50 to 110 ETB</span>
               </div>
             </div>
-            <div className="breakdown-row">
-              <span>Estimated Arrival</span>
-              <span>20 to 30 Mins</span>
-            </div>
-            <p style={{ margin: "0.2rem 0 0.85rem", color: "var(--muted)", fontSize: "0.82rem", lineHeight: 1.4 }}>
-              Delivery time only accounts for driving time and does not include kitchen cooking time.
-            </p>
             <div className="breakdown-row breakdown-row--grand">
-              <span className="grand-label">Total Due</span>
-              <span className="grand-total-val">{grandTotal} ETB</span>
+              <span className="grand-label">Food total</span>
+              <span className="grand-total-val">{total} ETB</span>
             </div>
           </div>
 

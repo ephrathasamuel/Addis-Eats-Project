@@ -1,38 +1,40 @@
-import { signIn, signUp } from "@/app/actions";
+import { redirect } from "next/navigation";
 import Link from "next/link";
+import { signIn, signUp } from "@/app/actions";
 import PasswordInput from "@/components/PasswordInput";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
+import SubmitButton from "@/components/SubmitButton";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { getSession } from "@/lib/session";
+
+export const dynamic = "force-dynamic";
+
+export const metadata = {
+  title: "Sign in",
+  robots: { index: false },
+};
+
+const ROLE_HOME = { admin: "/admin", staff: "/kitchen", delivery: "/delivery", customer: "/menu" };
 
 export default async function SignInPage({ searchParams }) {
   const params = await searchParams;
-  const next = params?.next || "/orders";
+  const next = typeof params?.next === "string" ? params.next : "";
   const registering = params?.mode === "register";
 
-  // Determine role: prioritize explicit role query param, or destination-based role
-  const explicitRole = params?.role;
-  const destinationRole = next.includes("/admin")
-    ? "admin"
-    : next.includes("/kitchen")
-    ? "staff"
-    : next.includes("/delivery")
-    ? "delivery"
-    : "customer";
-
-  const selectedRole = ["admin", "staff", "delivery", "customer"].includes(explicitRole)
-    ? explicitRole
-    : destinationRole;
+  const user = await getSession();
+  if (user) redirect(ROLE_HOME[user.role] || "/menu");
 
   let fieldErrors = {};
   try {
     if (params?.error) fieldErrors = JSON.parse(params.error);
+    if (typeof fieldErrors !== "object" || fieldErrors === null) fieldErrors = {};
   } catch {
     fieldErrors = {};
   }
-  const authError = params?.error && Object.keys(fieldErrors).length === 0
-    ? params.error
-    : null;
+  const authError = params?.error && Object.keys(fieldErrors).length === 0 ? params.error : null;
   const registered = params?.registered === "1";
+  const googleEnabled = isSupabaseConfigured();
+  const withNext = (path) => (next ? `${path}${path.includes("?") ? "&" : "?"}next=${encodeURIComponent(next)}` : path);
 
   return (
     <div className="auth-page">
@@ -41,102 +43,20 @@ export default async function SignInPage({ searchParams }) {
         <p className="auth-subtitle">
           {registering
             ? "Create a customer account to place and track orders."
-            : next && next !== "/" && next !== "/orders"
-            ? `Sign in to access ${next}`
-            : "Sign in to your Addis Eats account"}
+            : "Customers and restaurant staff sign in here."}
         </p>
 
-        {/* Role Selector Chips: allows logging into any role with ANY email */}
-        {!registering && (
-          <div style={{ marginBottom: "1.25rem" }}>
-            <div style={{ fontSize: "0.78rem", fontWeight: "650", color: "var(--muted)", marginBottom: "0.4rem" }}>
-              Select Sign In Portal:
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.45rem" }}>
-              <Link
-                href={`/signin?role=admin&next=${encodeURIComponent(next.includes("/admin") ? next : "/admin")}`}
-                className="btn-secondary"
-                style={{
-                  padding: "0.5rem",
-                  textAlign: "center",
-                  fontSize: "0.8rem",
-                  textDecoration: "none",
-                  borderRadius: "10px",
-                  backgroundColor: selectedRole === "admin" ? "var(--brand)" : "transparent",
-                  color: selectedRole === "admin" ? "#fff" : "var(--text)",
-                  border: "1px solid var(--border)",
-                  fontWeight: selectedRole === "admin" ? "750" : "500",
-                }}
-              >
-                Admin Panel
-              </Link>
-              <Link
-                href={`/signin?role=staff&next=${encodeURIComponent(next.includes("/kitchen") ? next : "/kitchen")}`}
-                className="btn-secondary"
-                style={{
-                  padding: "0.5rem",
-                  textAlign: "center",
-                  fontSize: "0.8rem",
-                  textDecoration: "none",
-                  borderRadius: "10px",
-                  backgroundColor: selectedRole === "staff" ? "var(--brand)" : "transparent",
-                  color: selectedRole === "staff" ? "#fff" : "var(--text)",
-                  border: "1px solid var(--border)",
-                  fontWeight: selectedRole === "staff" ? "750" : "500",
-                }}
-              >
-                Kitchen Staff
-              </Link>
-              <Link
-                href={`/signin?role=delivery&next=${encodeURIComponent(next.includes("/delivery") ? next : "/delivery")}`}
-                className="btn-secondary"
-                style={{
-                  padding: "0.5rem",
-                  textAlign: "center",
-                  fontSize: "0.8rem",
-                  textDecoration: "none",
-                  borderRadius: "10px",
-                  backgroundColor: selectedRole === "delivery" ? "var(--brand)" : "transparent",
-                  color: selectedRole === "delivery" ? "#fff" : "var(--text)",
-                  border: "1px solid var(--border)",
-                  fontWeight: selectedRole === "delivery" ? "750" : "500",
-                }}
-              >
-                Delivery Courier
-              </Link>
-              <Link
-                href={`/signin?role=customer&next=${encodeURIComponent(next.includes("/orders") ? next : "/orders")}`}
-                className="btn-secondary"
-                style={{
-                  padding: "0.5rem",
-                  textAlign: "center",
-                  fontSize: "0.8rem",
-                  textDecoration: "none",
-                  borderRadius: "10px",
-                  backgroundColor: selectedRole === "customer" ? "var(--brand)" : "transparent",
-                  color: selectedRole === "customer" ? "#fff" : "var(--text)",
-                  border: "1px solid var(--border)",
-                  fontWeight: selectedRole === "customer" ? "750" : "500",
-                }}
-              >
-                Customer Portal
-              </Link>
-            </div>
-          </div>
-        )}
-
-        <form action={registering ? signUp : signIn} key={`${selectedRole}-${registering}`}>
+        <form action={registering ? signUp : signIn} key={registering ? "register" : "signin"}>
           <input type="hidden" name="next" value={next} />
-          <input type="hidden" name="role" value={selectedRole} />
 
           {registering && (
             <div className="field">
-              <label htmlFor="name">Name</label>
+              <label htmlFor="name">Full name</label>
               <input
                 id="name"
                 name="name"
                 defaultValue={params?.name || ""}
-                placeholder="Enter your name"
+                placeholder="Enter your full name"
                 required
                 autoComplete="name"
               />
@@ -145,17 +65,7 @@ export default async function SignInPage({ searchParams }) {
           )}
 
           <div className="field">
-            <label htmlFor="email">
-              {registering
-                ? "Email"
-                : selectedRole === "admin"
-                ? "Admin Email (any email address)"
-                : selectedRole === "staff"
-                ? "Kitchen Staff Email (any email address)"
-                : selectedRole === "delivery"
-                ? "Courier Email (any email address)"
-                : "Email"}
-            </label>
+            <label htmlFor="email">Email</label>
             <input
               id="email"
               name="email"
@@ -172,8 +82,9 @@ export default async function SignInPage({ searchParams }) {
             <label htmlFor="password">Password</label>
             <PasswordInput
               id="password"
-              placeholder="Enter your password"
+              placeholder={registering ? "At least 8 characters" : "Enter your password"}
               required
+              minLength={registering ? 8 : undefined}
               autoComplete={registering ? "new-password" : "current-password"}
             />
             {fieldErrors.password && <p className="field-error">{fieldErrors.password}</p>}
@@ -186,36 +97,35 @@ export default async function SignInPage({ searchParams }) {
           )}
           {authError && <p className="field-error" role="alert">{authError}</p>}
 
-          <button type="submit" className="btn-primary btn-block">
-            {registering
-              ? "Create customer account"
-              : selectedRole === "admin"
-              ? "Sign in as Restaurant Admin"
-              : selectedRole === "staff"
-              ? "Sign in as Kitchen Staff"
-              : selectedRole === "delivery"
-              ? "Sign in as Delivery Courier"
-              : "Sign in to Addis Eats"}
-          </button>
+          <SubmitButton className="btn-primary btn-block" pendingText={registering ? "Creating account…" : "Signing in…"}>
+            {registering ? "Create customer account" : "Sign in"}
+          </SubmitButton>
         </form>
 
-        {/* Google Authentication Option */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", margin: "1.25rem 0 0.85rem" }}>
-          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
-          <span style={{ fontSize: "0.76rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            or continue with
-          </span>
-          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
-        </div>
-
-        <GoogleSignInButton next={next} role={selectedRole} isSupabaseConfigured={isSupabaseConfigured()} />
+        {googleEnabled && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", margin: "1.25rem 0 0.85rem" }}>
+              <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+              <span style={{ fontSize: "0.76rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                or
+              </span>
+              <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+            </div>
+            <GoogleSignInButton next={next} />
+          </>
+        )}
 
         <p className="auth-subtitle" style={{ marginTop: "1.1rem" }}>
           {registering ? "Already have an account?" : "New to Addis Eats?"}{" "}
-          <Link href={registering ? `/signin?next=${encodeURIComponent(next)}` : `/signin?mode=register&next=${encodeURIComponent(next)}`}>
+          <Link href={registering ? withNext("/signin") : withNext("/signin?mode=register")}>
             {registering ? "Sign in" : "Create a customer account"}
           </Link>
         </p>
+        {!registering && (
+          <p className="auth-subtitle" style={{ marginTop: "0.4rem", fontSize: "0.8rem" }}>
+            Kitchen and delivery staff: your manager creates your account. Ask them if you need a password reset.
+          </p>
+        )}
       </div>
     </div>
   );

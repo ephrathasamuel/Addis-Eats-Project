@@ -1,25 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useFavorites } from "@/components/Providers";
-import { getDishByIdSync } from "@/lib/dishes";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
+import { useFavorites, useSession } from "@/components/Providers";
 import { DishCard } from "@/components/DishCard";
 
 // Favorites stay in this browser's localStorage; authentication is verified
 // against the server session rather than a client-controlled cookie.
 export default function FavoritesPage() {
   const { favorites, hydrated } = useFavorites();
-  const [signedIn, setSignedIn] = useState(undefined);
+  const { status, user } = useSession();
+  const signedIn = Boolean(user);
+  // The live menu, so favorites show current prices and sold-out state.
+  const { data: menu } = useSWR(signedIn ? "/api/dishes" : null, fetcher);
 
-  useEffect(() => {
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data) => setSignedIn(Boolean(data?.authenticated)))
-      .catch(() => setSignedIn(false));
-  }, []);
-
-  if (!hydrated || signedIn === undefined) {
+  if (!hydrated || status === "loading" || (signedIn && !menu)) {
     return <p>Loading your favorites…</p>;
   }
 
@@ -35,7 +31,7 @@ export default function FavoritesPage() {
     );
   }
 
-  const dishes = favorites.map(getDishByIdSync).filter(Boolean);
+  const dishes = (Array.isArray(menu) ? menu : []).filter((dish) => favorites.includes(dish.id));
 
   if (dishes.length === 0) {
     return (

@@ -2,36 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import { AuthStatus } from "@/components/AuthStatus";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useSession } from "@/components/Providers";
 
 export function Header() {
   const pathname = usePathname();
-  const [role, setRole] = useState(null);
-
-  useEffect(() => {
-    let active = true;
-    setRole(null);
-
-    fetch("/api/auth/me")
-      .then((res) => res.json())
-      .then((data) => {
-        if (!active) return;
-        if (data?.authenticated && data?.user) {
-          setRole(data.user.role);
-        } else {
-          setRole(null);
-        }
-      })
-      .catch(() => {
-        if (active) setRole(null);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [pathname]);
+  const { user } = useSession();
+  const role = user?.role || null;
 
   const isActive = (path) => {
     if (!pathname) return false;
@@ -79,8 +57,11 @@ export function Header() {
               <Link href="/track" className={`nav-link ${isActive("/track") ? "nav-link--active" : ""}`}>
                 Live Map
               </Link>
-              <Link href="/admin" className={`nav-link ${isActive("/admin") ? "nav-link--active" : ""}`}>
-                Admin Panel
+              <Link href="/admin" className={`nav-link ${isActive("/admin") && !isActive("/admin/staff") ? "nav-link--active" : ""}`}>
+                Admin
+              </Link>
+              <Link href="/admin/staff" className={`nav-link ${isActive("/admin/staff") ? "nav-link--active" : ""}`}>
+                Staff
               </Link>
             </>
           ) : isDelivery ? (

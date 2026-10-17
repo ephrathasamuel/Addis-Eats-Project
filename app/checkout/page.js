@@ -1,8 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getDishByIdSync, getDishByNameSync } from "@/lib/dishes";
 import { getSession } from "@/lib/session";
+import { priceOrderItems } from "@/lib/orders";
 import OrderForm from "./OrderForm";
 
 export const dynamic = "force-dynamic";
@@ -19,25 +19,24 @@ export default async function CheckoutPage({ searchParams }) {
     redirect(`/signin?next=${encodeURIComponent(checkoutPath)}`);
   }
 
-  const itemsRaw = params?.items || "[]";
-  let items = [];
-  try {
-    items = JSON.parse(itemsRaw);
-  } catch {
-    items = [];
+  if (user.role !== "customer") {
+    redirect("/menu");
   }
 
-  let fieldErrors = {};
+  let requested = [];
   try {
-    fieldErrors = params?.error ? JSON.parse(params.error) : {};
+    requested = JSON.parse(params?.items || "[]");
   } catch {
-    fieldErrors = {};
+    requested = [];
   }
+  if (!Array.isArray(requested)) requested = [];
 
-  const subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
-
-  const name = params?.name || "";
-  const phone = params?.phone || "";
+  // Prices, names and availability come from the live menu, not the URL.
+  const priced = requested.length > 0 ? priceOrderItems(requested) : { ok: true, items: [], foodTotal: 0 };
+  const items = priced.ok ? priced.items : [];
+  const subtotal = priced.ok ? priced.foodTotal : 0;
+  const itemsRaw = JSON.stringify(items.map(({ id, qty }) => ({ id, qty })));
+  const fieldErrors = priced.ok ? {} : { items: priced.error };
 
   return (
     <div className="checkout-layout">
@@ -50,7 +49,15 @@ export default async function CheckoutPage({ searchParams }) {
         </div>
       </div>
 
-      {items.length === 0 && !fieldErrors.items ? (
+      {fieldErrors.items ? (
+        <div className="checkout-empty-state">
+          <h2>Your cart needs an update</h2>
+          <p>{fieldErrors.items}</p>
+          <Link href="/cart" className="btn-primary" style={{ marginTop: "1rem", display: "inline-block" }}>
+            Back to cart
+          </Link>
+        </div>
+      ) : items.length === 0 ? (
         <div className="checkout-empty-state">
           <div className="empty-state-svg" aria-hidden="true">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
@@ -78,9 +85,8 @@ export default async function CheckoutPage({ searchParams }) {
 
             <div className="checkout-dish-list">
               {items.map((item) => {
-                const dish = getDishByIdSync(item.id) || getDishByNameSync(item.name);
-                const imageUrl = item.image || dish?.image || "/images/food/doro-wat.jpg";
-                const category = item.category || dish?.category;
+                const imageUrl = item.image || "/images/food/hero-feast.jpg";
+                const category = item.category;
 
                 return (
                   <article key={item.id} className="checkout-dish-card">
@@ -94,6 +100,7 @@ export default async function CheckoutPage({ searchParams }) {
                           height={92}
                           className="checkout-dish-thumb"
                           style={{ objectFit: "cover" }}
+                          unoptimized={imageUrl.startsWith("/media/")}
                         />
                       </div>
                       <div className="checkout-dish-info">
@@ -139,7 +146,6 @@ export default async function CheckoutPage({ searchParams }) {
                 </div>
               </div>
             </div>
-            {fieldErrors.items && <p className="field-error">{fieldErrors.items}</p>}
           </section>
 
           {/* Right Column: Customer Details Form */}
@@ -148,12 +154,7 @@ export default async function CheckoutPage({ searchParams }) {
               <h2 id="delivery-details-heading">Delivery Details</h2>
             </div>
 
-            <OrderForm
-              itemsRaw={itemsRaw}
-              initialName={name}
-              initialPhone={phone}
-              fieldErrors={fieldErrors}
-            />
+            <OrderForm itemsRaw={itemsRaw} foodSubtotal={subtotal} initialName={user.name || ""} />
 
             <div className="payment-options-note">
               <h4>Accepted Payment Methods</h4>

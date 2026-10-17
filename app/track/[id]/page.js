@@ -19,8 +19,8 @@ export default async function TrackPage({ params }) {
   if (!order) notFound();
 
   return (
-    <main style={{ maxWidth: "1040px", margin: "2rem auto", padding: "0 1.5rem" }}>
-      <DeliveryMap orderId={id} initialOrder={toOrderTrackingData(order)} />
-    </main>
+    <div className="page-wide">
+      <DeliveryMap orderId={id} initialOrder={toOrderTrackingData(order)} viewerRole={user.role} />
+    </div>
   );
 }

@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
-import { parseDeliveryCoordinates, validateOrder } from "@/lib/validation";
-import {
-  createOrder,
-  getLocationDriveTime,
-  getLocationFee,
-  toOrderClientData,
-} from "@/lib/orders";
+import { normalizeEthiopianPhone, parseDeliveryCoordinates, validateOrder } from "@/lib/validation";
+import { createOrder, priceOrderItems, toOrderClientData } from "@/lib/orders";
 import { getSession } from "@/lib/session";
 
-// The API shares checkout validation and only creates orders for the signed-in user.
+// The API shares checkout validation and only creates orders for the signed-in customer.
+// Prices and fees are recomputed from the live menu; client-sent prices are ignored.
 
 export async function POST(request) {
   const user = await getSession();
   if (!user) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+  if (user.role !== "customer") {
+    return NextResponse.json({ error: "Only customer accounts can place orders." }, { status: 403 });
   }
 
   let body;
@@ -39,15 +38,19 @@ export async function POST(request) {
     return NextResponse.json({ fieldErrors }, { status: 422 });
   }
 
-  const location = typeof body.location === "string" ? body.location.trim() : "Bole";
+  const priced = priceOrderItems(body.items);
+  if (!priced.ok) {
+    return NextResponse.json({ error: priced.error }, { status: 422 });
+  }
+
   const order = createOrder({
     userId: user.id,
-    name: body.name,
-    phone: body.phone,
-    items: body.items,
-    location,
-    estimatedEta: getLocationDriveTime(location),
-    deliveryFee: getLocationFee(location),
+    name: String(body.name).trim(),
+    phone: normalizeEthiopianPhone(body.phone),
+    items: priced.items,
+    foodTotal: priced.foodTotal,
+    location: typeof body.location === "string" && body.location.trim() ? body.location.trim() : "Bole",
+    addressDetails: typeof body.addressDetails === "string" ? body.addressDetails.trim() : "",
     deliveryCoordinates,
   });
 

@@ -6,38 +6,49 @@ import { DeliveryBoard } from "./DeliveryBoard";
 
 export const dynamic = "force-dynamic";
 
+export const metadata = {
+  title: "Delivery",
+  robots: { index: false },
+};
+
 export default async function DeliveryPage() {
   const user = await getSession();
 
-  // If user is not authenticated, redirect to sign in with next=/delivery
   if (!user) {
     redirect("/signin?next=/delivery");
   }
 
   if (user.role !== "delivery" && user.role !== "admin") {
     return (
-      <main style={{ maxWidth: "620px", margin: "4rem auto", textAlign: "center", padding: "0 1.5rem" }}>
-        <h1>403 Forbidden</h1>
-        <p style={{ color: "var(--muted)", margin: "1rem 0 1.5rem", lineHeight: 1.6 }}>
-          Access to the delivery dispatch portal is restricted to courier drivers and administrators. You are currently signed in as <strong>{user.name}</strong> (<code>{user.role}</code> role).
+      <div className="empty-state" style={{ maxWidth: "620px", margin: "4rem auto" }}>
+        <h1>Couriers only</h1>
+        <p>
+          The delivery board is for Addis Eats couriers. You are signed in as <strong>{user.name}</strong>.
         </p>
-        <div style={{ display: "flex", gap: "0.85rem", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link href="/" className="btn-secondary">
-            Return Home
-          </Link>
-        </div>
-      </main>
+        <Link href="/menu" className="btn-secondary">
+          Back to the menu
+        </Link>
+      </div>
     );
   }
 
-  const orders = getDeliveryOrdersFor(user.id, user.role === "admin");
-
   return (
-    <main style={{ maxWidth: "1100px", margin: "2rem auto", padding: "0 1.5rem 4rem" }}>
+    <div className="page-wide">
+      <div className="page-heading">
+        <div>
+          <h1>{user.role === "admin" ? "Delivery overview" : "Delivery board"}</h1>
+          <p>
+            {user.role === "admin"
+              ? "Live view of the pickup pool and every courier on the road."
+              : "Accept ready orders, deliver them, and mark them delivered. The list updates automatically."}
+          </p>
+        </div>
+        <span className={`role-pill role-pill--${user.role}`}>{user.role === "admin" ? "Admin view" : user.name}</span>
+      </div>
       <DeliveryBoard
-        initialOrders={orders}
+        initialOrders={getDeliveryOrdersFor(user.id, user.role === "admin")}
         user={{ id: user.id, name: user.name, role: user.role }}
       />
-    </main>
+    </div>
   );
 }
