@@ -26,10 +26,13 @@ export async function proxy(request) {
       signInUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
       return NextResponse.redirect(signInUrl);
     }
-    return NextResponse.next({ request });
+    // Plain next(): passing the whole request object (`{ request }`) made
+    // Next 16 answer every matched Route Handler (/api/...) with a 404.
+    return NextResponse.next();
   }
 
-  let response = NextResponse.next({ request });
+  // Forward only the (possibly refreshed) request headers, as the Next docs show.
+  let response = NextResponse.next({ request: { headers: request.headers } });
   const supabase = createServerClient(config.url, config.key, {
     cookies: {
       getAll() {
@@ -37,7 +40,7 @@ export async function proxy(request) {
       },
       setAll(cookiesToSet, headers) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
+        response = NextResponse.next({ request: { headers: request.headers } });
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
         });
