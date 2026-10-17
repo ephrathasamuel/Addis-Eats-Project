@@ -10,9 +10,9 @@ export const metadata = {
 
 export default async function HomePage() {
   const dishes = await getDishes();
-  const traditional = dishes.filter((d) => d.category === "Traditional").slice(0, 3);
-  const western = dishes.filter((d) => d.category === "Western").slice(0, 3);
-  const drinks = dishes.filter((d) => d.category === "Drinks").slice(0, 3);
+  const traditional = dishes.filter((d) => d.category === "Traditional").slice(0, 4);
+  const western = dishes.filter((d) => d.category === "Western").slice(0, 4);
+  const drinks = dishes.filter((d) => d.category === "Drinks").slice(0, 4);
 
   const restaurantJsonLd = {
     "@context": "https://schema.org",

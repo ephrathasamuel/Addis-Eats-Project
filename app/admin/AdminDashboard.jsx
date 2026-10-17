@@ -21,12 +21,18 @@ const GALLERY_IMAGES = [
   { label: "Shiro Tegabino", path: "/images/food/shiro.jpg" },
   { label: "Beyaynetu", path: "/images/food/beyaynetu.jpg" },
   { label: "Tibs Firfir", path: "/images/food/firfir.jpg" },
+  { label: "Gomen Wat", path: "/images/food/gomen-wat.jpg" },
+  { label: "Kik Alicha", path: "/images/food/kik-alicha.jpg" },
+  { label: "Crispy Derek Tibs", path: "/images/food/derek-tibs.jpg" },
   { label: "Cheeseburger", path: "/images/food/cheeseburger.jpg" },
   { label: "Wood-Fired Pizza", path: "/images/food/margherita-pizza.jpg" },
   { label: "Chicken Alfredo", path: "/images/food/chicken-alfredo.jpg" },
   { label: "Ribeye Steak", path: "/images/food/ribeye-steak.jpg" },
   { label: "Buna Ceremony", path: "/images/food/buna-ceremony.jpg" },
+  { label: "Spiced Chai", path: "/images/food/spiced-chai.jpg" },
   { label: "Fresh Spris", path: "/images/food/spris-juice.jpg" },
+  { label: "Mango Passion Juice", path: "/images/food/mango-passion.jpg" },
+  { label: "Besso Smoothie", path: "/images/food/besso-smoothie.jpg" },
   { label: "Tej Wine", path: "/images/food/tej.jpg" },
 ];
 
