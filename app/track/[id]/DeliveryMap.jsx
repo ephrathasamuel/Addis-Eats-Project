@@ -8,7 +8,7 @@ import { Avatar } from "@/components/Modal";
 
 // viewerRole decides the footer links: couriers go back to their board,
 // customers to their orders; nobody on the courier side sees "Order again".
-export default function DeliveryMap({ orderId, initialOrder, viewerRole = "customer" }) {
+export default function DeliveryMap({ orderId, initialOrder, viewerRole = "customer", customerPhone = "" }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const courierMarkerRef = useRef(null);
@@ -189,7 +189,9 @@ export default function DeliveryMap({ orderId, initialOrder, viewerRole = "custo
             <div className="courier-card__label">{order.status === "delivered" ? "Delivered by" : "Your courier"}</div>
             <div className="courier-card__name">{order.courier.name}</div>
             {order.courier.phone && order.status !== "delivered" && (
-              <a href={`tel:${order.courier.phone}`} style={{ fontWeight: 650 }}>Call {order.courier.phone}</a>
+              <a href={`tel:${order.courier.phone}`} className="btn-primary call-button" style={{ marginTop: "0.5rem" }}>
+                📞 Call your courier · {order.courier.phone}
+              </a>
             )}
           </div>
         </div>
@@ -239,6 +241,11 @@ export default function DeliveryMap({ orderId, initialOrder, viewerRole = "custo
               <p style={{ margin: "0.4rem 0" }}>
                 <strong>Customer:</strong> {order.name}
               </p>
+              {viewerRole !== "customer" && customerPhone && (
+                <a href={`tel:${customerPhone}`} className="btn-primary call-button" style={{ margin: "0.4rem 0 0.6rem" }}>
+                  📞 Call customer · {customerPhone}
+                </a>
+              )}
               <p style={{ margin: "0.4rem 0" }}>
                 <strong>Destination:</strong> {order.location || "Addis Ababa"}, Addis Ababa
               </p>

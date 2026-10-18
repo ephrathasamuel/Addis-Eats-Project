@@ -68,7 +68,7 @@ export default async function TrackIndexPage({ searchParams }) {
           ))}
         </div>
           )}
-          <DeliveryMap key={selectedOrder.id} orderId={selectedOrder.id} initialOrder={toOrderTrackingData(selectedOrder)} viewerRole={user.role} />
+          <DeliveryMap key={selectedOrder.id} orderId={selectedOrder.id} initialOrder={toOrderTrackingData(selectedOrder)} viewerRole={user.role} customerPhone={user.role === "customer" ? "" : selectedOrder.phone} />
         </>
       ) : (
         <div className="empty-state">

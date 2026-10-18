@@ -20,7 +20,7 @@ export default async function TrackPage({ params }) {
 
   return (
     <div className="page-wide">
-      <DeliveryMap orderId={id} initialOrder={toOrderTrackingData(order)} viewerRole={user.role} />
+      <DeliveryMap orderId={id} initialOrder={toOrderTrackingData(order)} viewerRole={user.role} customerPhone={user.role === "customer" ? "" : order.phone} />
     </div>
   );
 }

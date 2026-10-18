@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
-import { claimAndStartDeliveryAction, completeDeliveryAction } from "@/app/actions";
+import { claimAndStartDeliveryAction, completeDeliveryAction, releaseDeliveryAction, startDeliveryJourneyAction } from "@/app/actions";
 import { Toast } from "@/components/Modal";
+import { PushToggle } from "@/components/PushToggle";
 import { useNow, minutesAgo } from "@/hooks/useNow";
 
 // Courier dispatch board. Every courier sees the same live pool of orders the
@@ -24,12 +25,17 @@ export function DeliveryBoard({ initialOrders, user }) {
 
   const [busyId, setBusyId] = useState(null);
   const [toast, setToast] = useState(null);
-  const [sharingLocation, setSharingLocation] = useState(false);
+  // Location sharing turns on by itself during a journey (the courier can
+  // still switch it off; that choice is remembered on this device).
+  const [sharingLocation, setSharingLocation] = useState(true);
   const [locationError, setLocationError] = useState("");
   const lastLocationSentAt = useRef(0);
 
   const pool = orders.filter((o) => o.status === "served" && !o.courierId);
-  const active = orders.filter((o) => o.status === "on-the-way" && (isAdmin || o.courierId === user.id));
+  // Accepted (still at the restaurant) and on-the-way orders.
+  const active = orders.filter(
+    (o) => (o.status === "on-the-way" || (o.status === "served" && o.courierId)) && (isAdmin || o.courierId === user.id)
+  );
   const delivered = orders.filter((o) => o.status === "delivered" && (isAdmin || o.courierId === user.id));
   const startOfDay = new Date(now).setHours(0, 0, 0, 0);
   const deliveredToday = delivered.filter((o) => new Date(o.deliveredAt).getTime() >= startOfDay);
@@ -59,17 +65,36 @@ export function DeliveryBoard({ initialOrders, user }) {
   const accept = (orderId) =>
     runAction(
       orderId,
-      { status: "on-the-way", courierId: user.id, courierName: user.name, deliveryStartedAt: new Date().toISOString() },
+      { courierId: user.id, courierName: user.name, courierAcceptedAt: new Date().toISOString() },
       claimAndStartDeliveryAction,
-      `Order #${orderId} is yours. Customer details are below.`
+      `Order #${orderId} is yours. Collect it, then tap Start journey.`
     );
+
+  const startJourney = (orderId) =>
+    runAction(
+      orderId,
+      { status: "on-the-way", deliveryStartedAt: new Date().toISOString() },
+      startDeliveryJourneyAction,
+      `On your way with order #${orderId}. Your location is shared with the customer.`
+    );
+
+  const handBack = (orderId) => {
+    if (!confirm(`Hand order #${orderId} back so another courier can take it?`)) return;
+    runAction(orderId, { courierId: null, courierName: null, courierAcceptedAt: null }, releaseDeliveryAction, `Order #${orderId} is back in the pool.`);
+  };
 
   const complete = (orderId) => {
     if (!confirm(`Confirm order #${orderId} was handed to the customer?`)) return;
     runAction(orderId, { status: "delivered", deliveredAt: new Date().toISOString() }, completeDeliveryAction, `Order #${orderId} delivered. Nice work!`);
   };
 
-  const activeOrderIds = active.filter((o) => o.courierId === user.id).map((o) => o.id).join(",");
+  const activeOrderIds = active.filter((o) => o.courierId === user.id && o.status === "on-the-way").map((o) => o.id).join(",");
+
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem("addis-share-location") === "off") setSharingLocation(false);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (!sharingLocation || !activeOrderIds) return undefined;
@@ -111,6 +136,8 @@ export function DeliveryBoard({ initialOrders, user }) {
 
   return (
     <div className="board">
+      {!isAdmin && <PushToggle purpose="Get a notification as soon as an order is ready for pickup." />}
+
       <div className="stat-row">
         <Stat label="Waiting for a courier" value={pool.length} tone="orange" />
         <Stat label={isAdmin ? "Out for delivery" : "My active deliveries"} value={active.length} tone="blue" />
@@ -121,15 +148,24 @@ export function DeliveryBoard({ initialOrders, user }) {
       {!isAdmin && activeOrderIds && (
         <section className="share-location">
           <div>
-            <strong>Live location</strong>
-            <p>Let your customers follow you on the map while this page is open.</p>
+            <strong>Live location {sharingLocation ? "is on" : "is off"}</strong>
+            <p>
+              {sharingLocation
+                ? "Your customers can follow you on the map while this page is open. Allow location access if your phone asks."
+                : "Turn it on so customers can see where you are."}
+            </p>
           </div>
           <button
             type="button"
             className={sharingLocation ? "btn-secondary" : "btn-primary"}
             onClick={() => {
               setLocationError("");
-              setSharingLocation((on) => !on);
+              setSharingLocation((on) => {
+                try {
+                  window.localStorage.setItem("addis-share-location", on ? "off" : "on");
+                } catch {}
+                return !on;
+              });
             }}
           >
             {sharingLocation ? "Stop sharing" : "Share my location"}
@@ -190,6 +226,8 @@ export function DeliveryBoard({ initialOrders, user }) {
               isAdmin={isAdmin}
               busy={busyId === order.id}
               onComplete={() => complete(order.id)}
+              onStart={() => startJourney(order.id)}
+              onHandBack={() => handBack(order.id)}
             />
           ))}
 
@@ -225,35 +263,43 @@ function Stat({ label, value, tone }) {
   );
 }
 
-function ActiveDelivery({ order, now, isAdmin, busy, onComplete }) {
+const HAND_BACK_WINDOW_MS = 5 * 60 * 1000;
+
+function ActiveDelivery({ order, now, isAdmin, busy, onComplete, onStart, onHandBack }) {
   const pin = order.deliveryCoordinates;
+  // Google Maps navigation shows live traffic and offers faster alternative routes.
   const directions = pin
-    ? `https://www.google.com/maps/dir/?api=1&destination=${pin.latitude},${pin.longitude}`
+    ? `https://www.google.com/maps/dir/?api=1&destination=${pin.latitude},${pin.longitude}&travelmode=driving`
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${order.location}, Addis Ababa`)}`;
+  const started = order.status === "on-the-way";
+  const handBackLeftMs = order.courierAcceptedAt
+    ? HAND_BACK_WINDOW_MS - (now - new Date(order.courierAcceptedAt).getTime())
+    : 0;
+  const handBackMinutes = Math.ceil(handBackLeftMs / 60000);
 
   return (
-    <article className="ticket ticket--active">
+    <article className={`ticket ${started ? "ticket--active" : "ticket--accepted"}`}>
       <div className="ticket__header">
         <strong className="ticket__id">#{order.id}</strong>
         <span className="ticket__age" suppressHydrationWarning>
-          Picked up {minutesAgo(order.deliveryStartedAt || order.createdAt, now)}
+          {started
+            ? `Picked up ${minutesAgo(order.deliveryStartedAt || order.createdAt, now)}`
+            : `Accepted ${minutesAgo(order.courierAcceptedAt || order.createdAt, now)}`}
         </span>
-        <span className="ticket__label">On the way</span>
+        <span className="ticket__label">{started ? "On the way" : "Collect from kitchen"}</span>
       </div>
       <div className="customer-block">
-        <div>
-          <strong>{order.name}</strong>
-          {order.phone && (
-            <a href={`tel:${order.phone}`} className="customer-block__phone">
-              {order.phone}
-            </a>
-          )}
-        </div>
+        <strong>{order.name}</strong>
         <div className="customer-block__address">
           <span>{order.location}</span>
           {order.addressDetails && <span className="text-muted">{order.addressDetails}</span>}
           {!pin && <span className="text-muted">No map pin shared. Call the customer if you need directions.</span>}
         </div>
+        {order.phone && (
+          <a href={`tel:${order.phone}`} className="btn-primary call-button">
+            📞 Call customer · {order.phone}
+          </a>
+        )}
         {isAdmin && order.courierName && <p className="ticket__meta">Courier: {order.courierName}</p>}
         {order.adminEdited && (
           <p className="ticket__note">Updated by {order.adminEditedBy || "admin"}: {order.adminEditNote}</p>
@@ -262,15 +308,30 @@ function ActiveDelivery({ order, now, isAdmin, busy, onComplete }) {
       <p className="ticket__meta">{order.items.map((i) => `${i.qty}× ${i.name}`).join(", ")}</p>
       <p className="ticket__meta">
         Collect <strong>{order.total} ETB</strong> · your fee <strong className="text-green">+{order.deliveryFee} ETB</strong>
+        {order.driveEstimate && <> · about {order.driveEstimate.minutes} min ({order.driveEstimate.km} km)</>}
       </p>
       <div className="ticket__actions">
-        <a href={directions} target="_blank" rel="noreferrer" className="btn-secondary">
-          Directions
+        <a href={directions} target="_blank" rel="noreferrer" className="btn-secondary" title="Opens Google Maps with live traffic and faster routes">
+          Navigate (live traffic)
         </a>
-        <Link href={`/track/${order.id}`} className="btn-secondary">
-          Live map
-        </Link>
-        {!isAdmin && (
+        {started && (
+          <Link href={`/track/${order.id}`} className="btn-secondary">
+            Live map
+          </Link>
+        )}
+        {!isAdmin && !started && (
+          <>
+            <button type="button" className="btn-success" disabled={busy} onClick={onStart}>
+              {busy ? "Saving…" : "Start journey"}
+            </button>
+            {handBackLeftMs > 0 && (
+              <button type="button" className="btn-ghost" disabled={busy} onClick={onHandBack} suppressHydrationWarning>
+                Hand back ({handBackMinutes} min left)
+              </button>
+            )}
+          </>
+        )}
+        {!isAdmin && started && (
           <button type="button" className="btn-success" disabled={busy} onClick={onComplete}>
             {busy ? "Saving…" : "Mark delivered"}
           </button>

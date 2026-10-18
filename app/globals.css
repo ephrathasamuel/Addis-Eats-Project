@@ -2920,9 +2920,9 @@ button:active:not(:disabled),
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.6rem;
 }
-.order-actions--four {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
+.order-actions--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.order-actions--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.order-actions--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .order-actions > a,
 .order-actions > button {
   display: inline-flex;
@@ -2952,7 +2952,9 @@ button:active:not(:disabled),
 }
 @media (max-width: 600px) {
   .order-actions,
-  .order-actions--four {
+  .order-actions--2,
+  .order-actions--3,
+  .order-actions--4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -3061,4 +3063,79 @@ button:active:not(:disabled),
 }
 .field-success-box p {
   margin: 0;
+}
+
+/* Reviews: latest version bold, the original faded */
+.review-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.review-current__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+.review-current strong {
+  font-size: 1rem;
+  color: #16a34a;
+}
+.review-stars {
+  font-size: 1.1rem;
+  color: #a855f7;
+  font-weight: 700;
+}
+.review-current__text {
+  margin: 0.4rem 0 0;
+  font-size: 0.98rem;
+  font-weight: 650;
+  color: var(--text);
+}
+.review-original {
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  opacity: 0.55;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.review-original p {
+  margin: 0.3rem 0 0;
+  font-style: italic;
+}
+
+/* Delivery: accepted but not yet on the road; big call buttons */
+.ticket--accepted { border-left-color: #f59e0b; }
+.call-button {
+  width: 100%;
+  min-height: 48px;
+  text-decoration: none;
+  font-size: 0.98rem;
+}
+.call-button:hover { text-decoration: none; }
+
+/* Notifications on/off */
+.push-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+}
+.push-toggle__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+.push-toggle__text span {
+  font-size: 0.85rem;
+  color: var(--muted);
 }

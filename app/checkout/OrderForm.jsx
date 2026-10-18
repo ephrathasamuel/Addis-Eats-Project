@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { placeOrder } from "@/app/actions";
+import { estimateDelivery, placeOrder } from "@/app/actions";
 import { DELIVERY_LOCATIONS, isInAddis } from "@/lib/locations";
 
 const PHONE_RE = /^(?:\+251|0)[79]\d{8}$/;
@@ -14,7 +14,7 @@ function validatePhone(value) {
   return null;
 }
 
-export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "" }) {
+export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", kitchenEstimate }) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [phone, setPhone] = useState("");
@@ -27,6 +27,7 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "" }) 
   const [deliveryCoordinates, setDeliveryCoordinates] = useState(null);
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState("");
+  const [drive, setDrive] = useState(null); // road / live-traffic estimate for the attached pin
 
   const matchedLocation = DELIVERY_LOCATIONS.find((l) => l.name === selectedLocation) || DELIVERY_LOCATIONS[0];
   const isOther = selectedLocation === "Other Neighborhood";
@@ -83,6 +84,8 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "" }) 
           return;
         }
         setDeliveryCoordinates({ latitude: coords.latitude, longitude: coords.longitude });
+        setDrive(null);
+        estimateDelivery(coords.latitude, coords.longitude).then((result) => setDrive(result?.ok ? result : null)).catch(() => {});
         clearError("deliveryCoordinates");
         setLocationMessage(`Location attached (accurate to about ${Math.round(coords.accuracy)} m). Your courier will get directions to this spot.`);
       },
@@ -242,11 +245,26 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "" }) 
           <span>Delivery fee ({isOther ? "Other neighborhood" : matchedLocation.name})</span>
           <strong>+{matchedLocation.fee} ETB</strong>
         </div>
+        {kitchenEstimate && (
+          <div className="checkout-fee-box__row">
+            <span>Cooking time</span>
+            <strong>about {kitchenEstimate.minutes} min</strong>
+          </div>
+        )}
         <div className="checkout-fee-box__row">
-          <span>Travel time once the food is ready</span>
-          <strong>{matchedLocation.driveTime}</strong>
+          <span>Drive time once the food is ready</span>
+          <strong>{deliveryCoordinates && drive ? `about ${drive.estimate.minutes} min` : matchedLocation.driveTime}</strong>
         </div>
-        <p>Neighborhood estimate only, not a live traffic ETA.</p>
+        <p>
+          {kitchenEstimate?.basis === "dishes"
+            ? `Cooking time is the average our kitchen team has taken for these dishes. `
+            : kitchenEstimate?.basis === "kitchen"
+            ? "Cooking time is our kitchen team's average. "
+            : ""}
+          {deliveryCoordinates && drive
+            ? `${drive.text}.`
+            : "Drive time is a neighborhood range. Share your location above for an estimate for your exact address."}
+        </p>
       </div>
 
       <div className="checkout-total-row">

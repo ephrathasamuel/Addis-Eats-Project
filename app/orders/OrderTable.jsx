@@ -132,13 +132,15 @@ export function OrderTable({ rows, total, totalPages, currentPage, sort, dir }) 
                 </td>
                 <td style={{ padding: "0.9rem 1.25rem", textAlign: "center" }}>
                   <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center" }}>
-                    <Link
-                      href={`/track/${order.id}`}
-                      className="btn-primary"
-                      style={{ fontSize: "0.8rem", padding: "0.3rem 0.8rem" }}
-                    >
-                      Map Track 
-                    </Link>
+                    {!["delivered", "cancelled"].includes(order.status) && (
+                      <Link
+                        href={`/track/${order.id}`}
+                        className="btn-primary"
+                        style={{ fontSize: "0.8rem", padding: "0.3rem 0.8rem" }}
+                      >
+                        Map Track
+                      </Link>
+                    )}
                     <Link
                       href={`/orders/${order.id}`}
                       className="btn-ghost"

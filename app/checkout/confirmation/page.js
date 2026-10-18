@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ClearCartOnMount } from "@/components/ClearCartOnMount";
+import { PushToggle } from "@/components/PushToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -72,8 +73,9 @@ export default async function ConfirmationPage({ searchParams }) {
         <div className="confirmation-tracking-prompt">
           <h3>Track Your Order</h3>
           <p>
-            Order status refreshes while this page is open. Courier GPS appears only after your assigned courier opts in to location sharing. Push notifications are not enabled.
+            Your order page updates live, and once your courier sets off you can follow them on the map.
           </p>
+          <PushToggle purpose="Get a notification when your food is cooking, picked up, on the way and delivered." />
         </div>
 
         {/* Responsive Touch-Friendly Actions */}

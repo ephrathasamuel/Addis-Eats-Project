@@ -4,8 +4,9 @@ import { useState } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
-import { confirmDeliveryAction, submitOrderReviewAction, cancelOrder } from "@/app/actions";
+import { confirmDeliveryAction, submitOrderReviewAction, editOrderReviewAction, cancelOrder } from "@/app/actions";
 import { Avatar } from "@/components/Modal";
+import { PushToggle } from "@/components/PushToggle";
 
 export function OrderStatus({ id, initial }) {
   const [cancelling, setCancelling] = useState(false);
@@ -50,6 +51,10 @@ export function OrderStatus({ id, initial }) {
   const [rating, setRating] = useState(current.reviewRating || 5);
   const [comment, setComment] = useState(current.reviewComment || "");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [editingReview, setEditingReview] = useState(false);
+  // Reviews can be changed for 48 hours after first posting.
+  const reviewedAtMs = current.reviewedAt ? new Date(current.reviewedAt).getTime() : NaN;
+  const canEditReview = Number.isFinite(reviewedAtMs) && Date.now() - reviewedAtMs < 48 * 60 * 60 * 1000;
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -58,7 +63,9 @@ export function OrderStatus({ id, initial }) {
       case "on-the-way":
         return { label: "Courier On The Way", bg: "rgba(37, 99, 235, 0.15)", color: "#2563eb" };
       case "served":
-        return { label: "Kitchen Served / Ready for Courier", bg: "rgba(245, 158, 11, 0.15)", color: "#d97706" };
+        return current.courier
+          ? { label: "Courier Picking Up Your Food", bg: "rgba(37, 99, 235, 0.12)", color: "#2563eb" }
+          : { label: "Ready, Waiting for a Courier", bg: "rgba(245, 158, 11, 0.15)", color: "#d97706" };
       case "preparing":
         return { label: "Cooking in Kitchen", bg: "rgba(245, 158, 11, 0.15)", color: "#d97706" };
       case "cancelled":
@@ -69,6 +76,28 @@ export function OrderStatus({ id, initial }) {
   };
 
   const badge = getStatusBadge(current.status);
+
+  // Cooking time comes from the kitchen's real averages; drive time from the
+  // road (or live traffic) when the customer shared a pin, otherwise the
+  // neighborhood range.
+  const kitchenMinutes = current.kitchenEstimate?.minutes;
+  const driveText = current.driveEstimate ? `about ${current.driveEstimate.minutes} min` : current.estimatedEta || "15-20 mins";
+  const etaLabel =
+    current.status === "on-the-way" || current.status === "served"
+      ? driveText
+      : kitchenMinutes
+      ? `${kitchenMinutes} min cooking + ${driveText} drive`
+      : `${driveText} after cooking`;
+  const etaNote = [
+    kitchenMinutes && current.kitchenEstimate.basis !== "default" ? "Cooking time is our kitchen team's average for these dishes." : "",
+    current.driveEstimate
+      ? current.driveEstimate.source === "live-traffic"
+        ? `Drive time uses live traffic (${current.driveEstimate.km} km).`
+        : `Drive time is for ${current.driveEstimate.km} km by road in typical traffic.`
+      : "Drive time is a neighborhood range.",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const handleConfirmReceived = async () => {
     setIsConfirming(true);
@@ -93,12 +122,13 @@ export function OrderStatus({ id, initial }) {
     formData.set("rating", String(rating));
     formData.set("comment", comment);
     try {
-      const result = await submitOrderReviewAction(formData);
+      const result = isReviewed ? await editOrderReviewAction(formData) : await submitOrderReviewAction(formData);
       if (!result?.ok) {
         alert(result?.error || "Could not submit your review.");
         return;
       }
       setIsReviewed(true);
+      setEditingReview(false);
       mutate();
     } finally {
       setIsSubmittingReview(false);
@@ -152,14 +182,13 @@ export function OrderStatus({ id, initial }) {
           </div>
         </div>
 
-        {/* Hide Estimated Wait completely if status is delivered or cancelled */}
         {current.status !== "delivered" && current.status !== "cancelled" && (
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
-              Neighborhood Travel-Time Estimate
+              {current.status === "on-the-way" ? "Drive time" : "Estimated time"}
             </div>
             <div style={{ fontSize: "1.1rem", fontWeight: "600", color: "var(--text)", marginTop: "0.2rem" }}>
-              {current.estimatedEta || "15-20 mins"}
+              {etaLabel}
             </div>
           </div>
         )}
@@ -167,7 +196,13 @@ export function OrderStatus({ id, initial }) {
 
       {current.courier && <CourierCard courier={current.courier} delivered={current.status === "delivered"} />}
 
-      {/* Explaining courier transit driving time vs cooking time */}
+      {!isFinished && (
+        <div style={{ marginBottom: "1.25rem" }}>
+          <PushToggle purpose="Get a notification when your food is cooking, picked up, on the way and delivered." />
+        </div>
+      )}
+
+      {/* What is happening now, and how the estimate was worked out */}
       {current.status !== "delivered" && current.status !== "cancelled" && (
         <div
           style={{
@@ -181,50 +216,19 @@ export function OrderStatus({ id, initial }) {
           }}
         >
           {current.status === "on-the-way" ? (
-            <div>
-              <strong>Delivery in Transit:</strong> Kitchen cooking is finished and your courier has picked up the order. Neighborhood estimate: <strong>{current.estimatedEta || "Unavailable"}</strong> (not traffic-aware).
-              <div style={{ marginTop: "0.6rem" }}>
-                <Link
-                  href={`/track/${current.id}`}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.4rem",
-                    fontWeight: "750",
-                    fontSize: "0.88rem",
-                    color: "var(--brand-dark)",
-                    textDecoration: "underline",
-                  }}
-                >
-                  View delivery map &gt;
-                </Link>
-              </div>
-            </div>
+            <span><strong>On the way:</strong> your courier has your food and is driving to {current.location}.</span>
           ) : current.status === "served" ? (
-            <div>
-              <strong>Kitchen Finished:</strong> Cooking is complete and the dish has been served! The delivery courier is picking up your order right now to start driving to {current.location}.
-              <div style={{ marginTop: "0.6rem" }}>
-                <Link
-                  href={`/track/${current.id}`}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.4rem",
-                    fontWeight: "750",
-                    fontSize: "0.88rem",
-                    color: "var(--brand-dark)",
-                    textDecoration: "underline",
-                  }}
-                >
-                  View delivery map &gt;
-                </Link>
-              </div>
-            </div>
+            current.courier ? (
+              <span><strong>Courier assigned:</strong> {current.courier.name} is collecting your food from the kitchen and will set off shortly.</span>
+            ) : (
+              <span><strong>Ready:</strong> your food is cooked and packed. A courier will pick it up shortly.</span>
+            )
+          ) : current.status === "preparing" ? (
+            <span><strong>Cooking:</strong> a cook is preparing your food now.</span>
           ) : (
-            <div>
-              <strong>In Kitchen:</strong> Addis Eats chefs are preparing your food (~15-20 mins cooking). The travel-time figure is a static neighborhood range, not a live route or traffic-aware ETA, and applies only after the courier picks up the order.
-            </div>
+            <span><strong>Received:</strong> your order is in the kitchen queue and a cook will pick it up shortly.</span>
           )}
+          <div style={{ marginTop: "0.4rem", color: "var(--muted)" }}>{etaNote}</div>
         </div>
       )}
 
@@ -304,30 +308,49 @@ export function OrderStatus({ id, initial }) {
                 Food arrived! Confirm receipt
               </button>
             </div>
-          ) : isReviewed ? (
-            /* Review completed display */
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                <strong style={{ fontSize: "1rem", color: "#16a34a" }}>
-                  Review Submitted
-                </strong>
-                <span style={{ fontSize: "1.05rem", color: "#a855f7", fontWeight: "700" }}>
-                  {"★".repeat(rating)}{"☆".repeat(5 - rating)}
-                </span>
+          ) : isReviewed && !editingReview ? (
+            /* Review display: the latest version in bold, the first one faded below */
+            <div className="review-block">
+              <div className="review-current">
+                <div className="review-current__top">
+                  <strong>{current.originalReview ? "Your updated review" : "Your review"}</strong>
+                  <span className="review-stars">{"★".repeat(current.reviewRating || rating)}{"☆".repeat(5 - (current.reviewRating || rating))}</span>
+                </div>
+                {(current.reviewComment ?? comment) && <p className="review-current__text">&quot;{current.reviewComment ?? comment}&quot;</p>}
               </div>
-              {comment && (
-                <p style={{ margin: "0.4rem 0 0", fontSize: "0.9rem", fontStyle: "italic", color: "var(--muted)" }}>
-                  &quot;{comment}&quot;
-                </p>
+              {current.originalReview && (
+                <div className="review-original">
+                  <div className="review-current__top">
+                    <span>Original review</span>
+                    <span>{"★".repeat(current.originalReview.rating)}{"☆".repeat(5 - current.originalReview.rating)}</span>
+                  </div>
+                  {current.originalReview.comment && <p>&quot;{current.originalReview.comment}&quot;</p>}
+                </div>
+              )}
+              {canEditReview && (
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  style={{ marginTop: "0.75rem" }}
+                  onClick={() => {
+                    setRating(current.reviewRating || rating);
+                    setComment(current.reviewComment ?? comment);
+                    setEditingReview(true);
+                  }}
+                >
+                  Edit review (available for 48 hours)
+                </button>
               )}
             </div>
           ) : (
             /* Review & Rating Form */
             <form onSubmit={handleReviewSubmit}>
               <div style={{ marginBottom: "0.85rem" }}>
-                <h3 style={{ margin: "0 0 0.35rem", fontSize: "1.15rem" }}>How was your food?</h3>
+                <h3 style={{ margin: "0 0 0.35rem", fontSize: "1.15rem" }}>{editingReview ? "Update your review" : "How was your food?"}</h3>
                 <p style={{ margin: 0, fontSize: "0.88rem", color: "var(--muted)" }}>
-                  Thank you for confirming receipt! Rate and review your dishes below.
+                  {editingReview
+                    ? "Your original review stays visible, shown lighter, below the new one."
+                    : "Thank you for confirming receipt! Rate and review your dishes below."}
                 </p>
               </div>
 
@@ -398,8 +421,13 @@ export function OrderStatus({ id, initial }) {
                   cursor: isSubmittingReview ? "not-allowed" : "pointer",
                 }}
               >
-                Submit
+                {editingReview ? "Save updated review" : "Submit"}
               </button>
+              {editingReview && (
+                <button type="button" className="btn-ghost" style={{ width: "100%", marginTop: "0.5rem" }} onClick={() => setEditingReview(false)}>
+                  Cancel
+                </button>
+              )}
             </form>
           )}
         </div>
@@ -487,21 +515,24 @@ export function OrderStatus({ id, initial }) {
         </div>
       </div>
 
-      <div className={`order-actions ${isCancellable ? "order-actions--four" : ""}`}>
+      {/* The live map only matters until the food arrives. */}
+      <div className={`order-actions order-actions--${2 + (isFinished ? 0 : 1) + (isCancellable ? 1 : 0)}`}>
+        <Link href="/orders" className="btn-ghost">
+          ← Back to order history
+        </Link>
         <Link href="/menu" className="btn-primary">
           Order more dishes
         </Link>
-        <Link href={`/track/${current.id}`} className="btn-secondary">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
-            <line x1="9" y1="3" x2="9" y2="18" />
-            <line x1="15" y1="6" x2="15" y2="21" />
-          </svg>
-          <span>Track on Live Map</span>
-        </Link>
-        <Link href="/" className="btn-ghost">
-          Return home
-        </Link>
+        {!isFinished && (
+          <Link href={`/track/${current.id}`} className="btn-secondary">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+              <line x1="9" y1="3" x2="9" y2="18" />
+              <line x1="15" y1="6" x2="15" y2="21" />
+            </svg>
+            <span>Track on Live Map</span>
+          </Link>
+        )}
         {isCancellable && (
           <button
             type="button"
@@ -517,7 +548,7 @@ export function OrderStatus({ id, initial }) {
   );
 }
 
-// Shown once a courier has picked up the order.
+// Shown from the moment a courier accepts the order.
 function CourierCard({ courier, delivered }) {
   return (
     <div className="courier-card">
@@ -526,8 +557,8 @@ function CourierCard({ courier, delivered }) {
         <div className="courier-card__label">{delivered ? "Delivered by" : "Your courier"}</div>
         <div className="courier-card__name">{courier.name}</div>
         {courier.phone && !delivered && (
-          <a href={`tel:${courier.phone}`} style={{ fontWeight: 650 }}>
-            Call {courier.phone}
+          <a href={`tel:${courier.phone}`} className="btn-primary call-button" style={{ marginTop: "0.5rem" }}>
+            📞 Call your courier · {courier.phone}
           </a>
         )}
       </div>

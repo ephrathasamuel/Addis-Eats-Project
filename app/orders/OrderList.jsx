@@ -148,18 +148,21 @@ export function OrderList({ orders }) {
                 <Link href={`/orders/${order.id}`} className="btn-ghost" style={{ fontSize: "0.85rem" }}>
                   Status
                 </Link>
-                <Link
-                  href={`/track/${order.id}`}
-                  className="btn-ghost"
-                  style={{
-                    fontSize: "0.85rem",
-                    color: "var(--brand-dark)",
-                    borderColor: "var(--brand)",
-                    backgroundColor: "var(--brand-light)",
-                  }}
-                >
-                  Map Route
-                </Link>
+                {/* The map only matters until the food arrives. */}
+                {!["delivered", "cancelled"].includes(order.status) && (
+                  <Link
+                    href={`/track/${order.id}`}
+                    className="btn-ghost"
+                    style={{
+                      fontSize: "0.85rem",
+                      color: "var(--brand-dark)",
+                      borderColor: "var(--brand)",
+                      backgroundColor: "var(--brand-light)",
+                    }}
+                  >
+                    Map Route
+                  </Link>
+                )}
                 {canCancel && (
                   <button
                     onClick={() => handleCancel(order.id)}

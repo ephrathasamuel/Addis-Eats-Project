@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { priceOrderItems } from "@/lib/orders";
+import { getKitchenEstimate, priceOrderItems } from "@/lib/orders";
 import OrderForm from "./OrderForm";
 
 export const dynamic = "force-dynamic";
@@ -154,7 +154,7 @@ export default async function CheckoutPage({ searchParams }) {
               <h2 id="delivery-details-heading">Delivery Details</h2>
             </div>
 
-            <OrderForm itemsRaw={itemsRaw} foodSubtotal={subtotal} initialName={user.name || ""} />
+            <OrderForm itemsRaw={itemsRaw} foodSubtotal={subtotal} initialName={user.name || ""} kitchenEstimate={items.length ? getKitchenEstimate(items) : null} />
 
             <div className="payment-options-note">
               <h4>Accepted Payment Methods</h4>

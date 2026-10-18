@@ -18,6 +18,7 @@ import {
   priceOrderItems,
   getOrderForUser,
   getDeliveryOrdersFor,
+  getOrder,
   toOrderClientData,
   cancelOrderRecord,
   claimKitchenOrders,
@@ -25,7 +26,10 @@ import {
   releaseKitchenOrder,
   confirmOrderReceived,
   submitOrderReview,
+  editOrderReview,
   claimAndStartDelivery,
+  startDeliveryJourney,
+  releaseDelivery,
   completeDelivery,
   adminEditOrderRecord,
 } from "@/lib/orders";
@@ -54,6 +58,14 @@ import {
 } from "@/lib/dishes";
 import { resolveImageInput } from "@/lib/media";
 import { addDailyExpense } from "@/lib/finances";
+import { describeDrive, estimateDrive } from "@/lib/routing";
+import { notifyRole, notifyUser } from "@/lib/push";
+
+// Tells the customer who placed an order about a status change.
+function notifyCustomer(orderId, title, body) {
+  const order = getOrder(orderId);
+  if (order) notifyUser(order.userId, { title, body, url: `/orders/${order.id}`, tag: `order-${order.id}` });
+}
 import { flushData, syncData } from "@/lib/datastore";
 import { getKitchenSnapshot } from "@/lib/kitchen";
 
@@ -179,9 +191,24 @@ async function placeOrderImpl(formData) {
     location: finalLocation,
     addressDetails,
     deliveryCoordinates,
+    driveEstimate: deliveryCoordinates ? await estimateDrive(deliveryCoordinates) : null,
   });
 
+  notifyRole("staff", {
+    title: `New order #${order.id}`,
+    body: order.items.map((item) => `${item.qty}× ${item.name}`).join(", "),
+    url: "/kitchen",
+    tag: "kitchen-new",
+  });
   redirect(`/checkout/confirmation?order=${order.id}`);
+}
+
+/** Driving estimate for the checkout once the customer attaches their location. */
+async function estimateDeliveryImpl(latitude, longitude) {
+  const coordinates = parseDeliveryCoordinates(latitude, longitude);
+  if (!coordinates) return { ok: false };
+  const estimate = await estimateDrive(coordinates);
+  return estimate ? { ok: true, estimate, text: describeDrive(estimate) } : { ok: false };
 }
 
 async function cancelOrderImpl(orderId) {
@@ -252,6 +279,21 @@ async function submitOrderReviewActionImpl(formData) {
  * Email + password sign-in for everyone. Staff and admin accounts live in the
  * local account store; customers use Supabase when it is configured.
  */
+async function editOrderReviewActionImpl(formData) {
+  const orderId = formData.get("orderId");
+  const user = await getSession();
+  if (!user || user.role !== "customer") return { ok: false, error: "Only the customer who placed the order can edit its review." };
+  if (!getOrderForUser(orderId, user.id, user.role)) return { ok: false, error: "Order not found." };
+  const rating = Number(formData.get("rating"));
+  const comment = String(formData.get("comment") || "").trim();
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { ok: false, error: "Rating must be from 1 to 5 stars." };
+  if (comment.length > 1000) return { ok: false, error: "Review comments must be 1000 characters or fewer." };
+  const result = editOrderReview(orderId, rating, comment);
+  if (!result.ok) return result;
+  revalidateMenu();
+  return { ok: true };
+}
+
 const NO_ACCOUNT_MESSAGE = "There's no account with this email yet. Create an account to get started.";
 const STAFF_ON_CUSTOMER_PAGE = "This is a restaurant staff account. Please sign in on the staff sign-in page.";
 
@@ -618,6 +660,9 @@ async function kitchenClaimActionImpl({ orderIds, staffId, pin } = {}) {
   }
 
   const results = claimKitchenOrders(ids, { id: cook.id, name: cook.name });
+  for (const result of results.filter((r) => r.ok)) {
+    notifyCustomer(result.id, "Your food is being cooked", `A cook has started preparing order #${result.id}.`);
+  }
   return { ok: true, cook: { id: cook.id, name: cook.name }, results, snapshot: getKitchenSnapshot() };
 }
 
@@ -626,6 +671,16 @@ async function kitchenReadyActionImpl(orderIds) {
   if (!user) return { ok: false, error: "Kitchen staff sign-in required." };
   const ids = (Array.isArray(orderIds) ? orderIds : [orderIds]).slice(0, 50).map(String);
   const results = markKitchenReady(ids);
+  for (const result of results.filter((r) => r.ok)) {
+    const order = getOrder(result.id);
+    notifyCustomer(result.id, "Your food is ready", `Order #${result.id} is packed and waiting for a courier.`);
+    notifyRole("delivery", {
+      title: `New pickup #${result.id}`,
+      body: `${order?.location || "Addis Ababa"} · +${order?.deliveryFee || 0} ETB`,
+      url: "/delivery",
+      tag: "delivery-pool",
+    });
+  }
   return { ok: true, results, snapshot: getKitchenSnapshot() };
 }
 
@@ -661,13 +716,30 @@ async function claimAndStartDeliveryActionImpl(orderId) {
   const user = await requireRole("delivery");
   if (!user) return { ok: false, error: "A courier account is required to claim orders." };
   const res = claimAndStartDelivery(orderId, user);
+  if (res.ok) notifyCustomer(orderId, "A courier has your order", `${user.name} is collecting order #${orderId}${user.phone ? ` (${user.phone})` : ""}.`);
   return { ...res, order: undefined, orders: getDeliveryOrdersFor(user.id) };
+}
+
+async function startDeliveryJourneyActionImpl(orderId) {
+  const user = await requireRole("delivery");
+  if (!user) return { ok: false, error: "Only the assigned courier can start this journey." };
+  const res = startDeliveryJourney(orderId, user.id);
+  if (res.ok) notifyCustomer(orderId, "Your food is on the way", `${user.name} is driving to you now. Track them on the live map.`);
+  return { ...res, order: undefined, orders: getDeliveryOrdersFor(user.id) };
+}
+
+async function releaseDeliveryActionImpl(orderId) {
+  const user = await requireRole("delivery");
+  if (!user) return { ok: false, error: "Only the assigned courier can hand this order back." };
+  const res = releaseDelivery(orderId, user.id);
+  return { ...res, orders: getDeliveryOrdersFor(user.id) };
 }
 
 async function completeDeliveryActionImpl(orderId) {
   const user = await requireRole("delivery");
   if (!user) return { ok: false, error: "Only the assigned courier can mark an order delivered." };
   const res = completeDelivery(orderId, user.id);
+  if (res.ok) notifyCustomer(orderId, "Delivered. Enjoy your meal!", `Order #${orderId} has arrived. Please confirm you received it.`);
   return { ...res, order: undefined, orders: getDeliveryOrdersFor(user.id) };
 }
 
@@ -846,12 +918,20 @@ export async function placeOrder(...args) {
   return withData(() => placeOrderImpl(...args));
 }
 
+export async function estimateDelivery(...args) {
+  return withData(() => estimateDeliveryImpl(...args));
+}
+
 export async function cancelOrder(...args) {
   return withData(() => cancelOrderImpl(...args));
 }
 
 export async function confirmDeliveryAction(...args) {
   return withData(() => confirmDeliveryActionImpl(...args));
+}
+
+export async function editOrderReviewAction(...args) {
+  return withData(() => editOrderReviewActionImpl(...args));
 }
 
 export async function submitOrderReviewAction(...args) {
@@ -920,6 +1000,14 @@ export async function toggleSoldOutAction(...args) {
 
 export async function claimAndStartDeliveryAction(...args) {
   return withData(() => claimAndStartDeliveryActionImpl(...args));
+}
+
+export async function startDeliveryJourneyAction(...args) {
+  return withData(() => startDeliveryJourneyActionImpl(...args));
+}
+
+export async function releaseDeliveryAction(...args) {
+  return withData(() => releaseDeliveryActionImpl(...args));
 }
 
 export async function completeDeliveryAction(...args) {
