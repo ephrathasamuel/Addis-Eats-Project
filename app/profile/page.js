@@ -34,7 +34,7 @@ export default async function ProfilePage() {
   }
 
   const isStaff = user.role === "staff" || user.role === "delivery";
-  const hasPassword = user.provider === "local" || user.authMethod !== "google";
+  const hasPassword = user.provider === "local" || Boolean(user.hasPassword);
   const today = isStaff ? getStaffStats(startOfToday()) : null;
   const todayCount = user.role === "staff"
     ? today.cooks[user.id]?.done || 0
@@ -89,7 +89,7 @@ export default async function ProfilePage() {
 
       {isStaff && <StaffProfileForm user={{ name: user.name, phone: user.phone, photo: user.photo, role: user.role }} />}
       {user.role === "staff" && <ChangePinForm />}
-      <ChangePasswordForm hasPassword={hasPassword} />
+      <ChangePasswordForm hasPassword={hasPassword} canEmailReset={user.provider === "supabase"} />
 
       {user.role === "customer" && <CustomerOrders userId={user.id} />}
     </div>

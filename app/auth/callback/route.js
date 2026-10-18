@@ -48,9 +48,11 @@ export async function GET(request) {
   }
 
   if (error) {
-    return NextResponse.redirect(
-      new URL("/signin?error=Sign-in+link+is+invalid+or+expired.+Please+try+again.", url.origin)
-    );
+    const passwordLink = url.searchParams.get("next") === "/reset-password";
+    const message = passwordLink
+      ? "That password link has expired or was opened in a different browser. Request a new one below."
+      : "That sign-in link is invalid or expired. Please try again.";
+    return NextResponse.redirect(new URL(`${passwordLink ? "/signin/forgot" : "/signin"}?error=${encodeURIComponent(message)}`, url.origin));
   }
 
   const response = NextResponse.redirect(new URL(safeDestination(url.searchParams.get("next")), url.origin));

@@ -477,6 +477,62 @@ async function signOutImpl() {
 // Profile (every signed-in user)
 // ---------------------------------------------------------------------------
 
+/**
+ * Emails a link for choosing a new password (Supabase customer accounts).
+ * Works both for "Forgot password?" and for Google accounts that want to add
+ * a password. Always answers the same way, so it doesn't reveal which emails
+ * have accounts.
+ */
+async function requestPasswordResetImpl(formData) {
+  const session = await getSession();
+  const email = String(formData?.get?.("email") || session?.email || "").trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: "Enter a valid email address." };
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Password reset emails aren't available here. Please contact the restaurant." };
+  }
+  const local = findAccountByEmail(email);
+  if (local && local.role !== "customer") {
+    return { ok: false, error: "Staff passwords are reset by the restaurant admin." };
+  }
+  try {
+    const supabase = await createSupabaseServerClient();
+    const origin = await getOrigin();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
+    });
+    if (error?.code === "over_email_send_rate_limit" || error?.status === 429) {
+      return { ok: false, error: "Too many emails were sent recently. Please wait a few minutes and try again." };
+    }
+  } catch {
+    return { ok: false, error: "The email service is unavailable. Please try again." };
+  }
+  return { ok: true, email };
+}
+
+/** Sets a new password after the user opened the emailed link (they are signed in by it). */
+async function setNewPasswordImpl(formData) {
+  const user = await getSession();
+  if (!user || user.provider !== "supabase") {
+    return { ok: false, error: "This link has expired. Request a new password email." };
+  }
+  const password = String(formData.get("newPassword") || "");
+  if (password.length < 8) return { ok: false, error: "Password must be at least 8 characters." };
+  if (password !== String(formData.get("confirmPassword") || "")) return { ok: false, error: "The passwords do not match." };
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      return {
+        ok: false,
+        error: error.code === "same_password" ? "Choose a password you haven't used before." : "Could not save the password. Request a new email and try again.",
+      };
+    }
+  } catch {
+    return { ok: false, error: "The account service is unavailable. Please try again." };
+  }
+  return { ok: true };
+}
+
 async function changePasswordActionImpl(formData) {
   const user = await getSession();
   if (!user) return { ok: false, error: "Please sign in again." };
@@ -820,6 +876,14 @@ export async function signUp(...args) {
 
 export async function signOut(...args) {
   return withData(() => signOutImpl(...args));
+}
+
+export async function requestPasswordReset(...args) {
+  return withData(() => requestPasswordResetImpl(...args));
+}
+
+export async function setNewPassword(...args) {
+  return withData(() => setNewPasswordImpl(...args));
 }
 
 export async function changePasswordAction(...args) {

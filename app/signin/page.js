@@ -90,6 +90,11 @@ export default async function SignInPage({ searchParams }) {
               autoComplete={registering ? "new-password" : "current-password"}
             />
             {fieldErrors.password && <p className="field-error">{fieldErrors.password}</p>}
+            {!registering && googleEnabled && (
+              <Link href={`/signin/forgot${params?.email ? `?email=${encodeURIComponent(params.email)}` : ""}`} className="forgot-link">
+                Forgot password?
+              </Link>
+            )}
           </div>
 
           {registered && (

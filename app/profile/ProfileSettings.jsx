@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { changeMyPinAction, changePasswordAction, updateMyProfileAction } from "@/app/actions";
+import { changeMyPinAction, changePasswordAction, requestPasswordReset, updateMyProfileAction } from "@/app/actions";
 import PasswordInput from "@/components/PasswordInput";
 import { ImagePicker } from "@/components/ImagePicker";
 import { useSession } from "@/components/Providers";
@@ -25,14 +25,44 @@ function useFormAction(action, { onSuccess, resetOnSuccess = true } = {}) {
   return [state, handleSubmit];
 }
 
-export function ChangePasswordForm({ hasPassword = true }) {
+// Sends the "choose a new password" email to the signed-in user's address.
+function EmailPasswordLink({ label, intro }) {
+  const [state, setState] = useState({ pending: false, error: "", sentTo: "" });
+  async function send() {
+    setState({ pending: true, error: "", sentTo: "" });
+    const result = await requestPasswordReset(new FormData());
+    setState({ pending: false, error: result?.ok ? "" : result?.error || "Something went wrong.", sentTo: result?.ok ? result.email : "" });
+  }
+  if (state.sentTo) {
+    return (
+      <p className="field-success" role="status">
+        We emailed a link to <strong>{state.sentTo}</strong>. Open it on this device to choose your password; it expires after one hour.
+      </p>
+    );
+  }
+  return (
+    <div>
+      {intro && <p className="text-muted" style={{ marginTop: 0 }}>{intro}</p>}
+      {state.error && <p className="field-error" role="alert">{state.error}</p>}
+      <button type="button" className="btn-secondary" onClick={send} disabled={state.pending}>
+        {state.pending ? "Sending…" : label}
+      </button>
+    </div>
+  );
+}
+
+export function ChangePasswordForm({ hasPassword = true, canEmailReset = false }) {
   const [state, submit] = useFormAction(changePasswordAction);
   if (!hasPassword) {
+    // Google accounts can add a password, confirmed through their email.
     return (
-      <section className="card-panel">
-        <h2>Password</h2>
-        <p className="text-muted">You signed in with Google, so your password is managed by your Google account.</p>
-      </section>
+      <details className="card-panel collapsible-panel">
+        <summary>Set a password</summary>
+        <EmailPasswordLink
+          label="Email me a link to set a password"
+          intro="You signed in with Google. To also be able to sign in with your email and a password, we'll email you a link to choose one."
+        />
+      </details>
     );
   }
   // Collapsed to a single "Change password" row until clicked.
@@ -60,6 +90,11 @@ export function ChangePasswordForm({ hasPassword = true }) {
           {state.pending ? "Saving…" : "Update password"}
         </button>
       </form>
+      {canEmailReset && (
+        <div className="password-reset-alt">
+          <EmailPasswordLink label="Forgot your current password? Email me a reset link" />
+        </div>
+      )}
     </details>
   );
 }
