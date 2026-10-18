@@ -20,11 +20,13 @@ export async function GET(request) {
 
   // Google / OAuth errors (e.g. the user closed the account chooser).
   if (url.searchParams.get("error")) {
-    const detail = url.searchParams.get("error_description");
+    const detail = url.searchParams.get("error_description") || "";
+    // Technical details go to the server log, not to the customer.
+    console.warn("[addis-eats] Google sign-in error:", url.searchParams.get("error"), detail);
     const message =
       url.searchParams.get("error") === "access_denied"
         ? "Google sign-in was cancelled. Please try again."
-        : `Google sign-in failed${detail ? `: ${detail}` : ""}. Please try again.`;
+        : "We couldn't finish signing you in with Google. Please try again in a moment, or sign in with email.";
     return NextResponse.redirect(new URL(`/signin?error=${encodeURIComponent(message)}`, url.origin));
   }
 

@@ -87,13 +87,14 @@ export function KitchenBoard({ initialSnapshot, viewer }) {
   const patchTickets = useCallback(
     (ids, patch) =>
       mutate(
-        (current) => ({
+        // The cache can still be empty before the first refresh; start from what's on screen.
+        (current = snapshot) => ({
           ...current,
           queue: current.queue.map((t) => (ids.includes(t.id) ? { ...t, ...patch } : t)),
         }),
         { revalidate: false }
       ),
-    [mutate]
+    [mutate, snapshot]
   );
 
   function toggleSelect(id) {
@@ -180,7 +181,7 @@ export function KitchenBoard({ initialSnapshot, viewer }) {
   async function toggleDish(dish) {
     const next = !dish.isSoldOut;
     mutate(
-      (current) => ({ ...current, dishes: current.dishes.map((d) => (d.id === dish.id ? { ...d, isSoldOut: next } : d)) }),
+      (current = snapshot) => ({ ...current, dishes: current.dishes.map((d) => (d.id === dish.id ? { ...d, isSoldOut: next } : d)) }),
       { revalidate: false }
     );
     const result = await setDishSoldOutAction(dish.id, next);

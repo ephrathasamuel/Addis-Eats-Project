@@ -137,11 +137,7 @@ export default async function SignInPage({ searchParams }) {
             {registering ? "Sign in" : "Create a customer account"}
           </Link>
         </p>
-        {!registering && (
-          <p className="auth-subtitle auth-staff-link">
-            Restaurant staff? <Link href="/staff/signin">Staff sign-in</Link>
-          </p>
-        )}
+        {/* The staff area is deliberately not linked here; staff open /staff/signin directly. */}
       </div>
     </div>
   );

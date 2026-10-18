@@ -39,7 +39,8 @@ export function DeliveryBoard({ initialOrders, user }) {
   async function runAction(orderId, optimistic, action, successMessage) {
     setBusyId(orderId);
     mutate(
-      (current) => ({ orders: current.orders.map((o) => (o.id === orderId ? { ...o, ...optimistic } : o)) }),
+      // The cache can still be empty before the first refresh; start from what's on screen.
+      (current = { orders }) => ({ orders: current.orders.map((o) => (o.id === orderId ? { ...o, ...optimistic } : o)) }),
       { revalidate: false }
     );
     try {
