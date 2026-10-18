@@ -3146,13 +3146,13 @@ button:active:not(:disabled),
   bottom: 2rem;
   right: 2rem;
   z-index: 999;
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: var(--brand);
   color: #ffffff;
   border: 1.5px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3183,10 +3183,10 @@ button:active:not(:disabled),
 @media (max-width: 768px) {
   .scroll-to-top-btn {
     bottom: calc(72px + env(safe-area-inset-bottom, 0px));
-    right: 1.15rem;
-    width: 42px;
-    height: 42px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    right: 1rem;
+    width: 36px;
+    height: 36px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.22);
   }
 }
 
