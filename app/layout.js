@@ -3,6 +3,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Providers } from "@/components/Providers";
 import { WelcomeNotice } from "@/components/WelcomeNotice";
+import { HideOnStaffSignIn } from "@/components/HideOnStaffSignIn";
 import { getSession } from "@/lib/session";
 
 export const metadata = {
@@ -62,7 +63,9 @@ export default async function RootLayout({ children }) {
             <WelcomeNotice />
             {children}
           </main>
-          <Footer />
+          <HideOnStaffSignIn>
+            <Footer />
+          </HideOnStaffSignIn>
         </Providers>
       </body>
     </html>

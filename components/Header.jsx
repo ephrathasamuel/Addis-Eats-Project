@@ -25,25 +25,44 @@ export function Header() {
     return pathname === path || pathname.startsWith(path + "/");
   };
 
+  const brand = (
+    <Link href="/" className="brand" aria-label="Addis Eats Traditional & Western">
+      <span className="brand-logo-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+          <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+          <line x1="6" y1="1" x2="6" y2="4" />
+          <line x1="10" y1="1" x2="10" y2="4" />
+          <line x1="14" y1="1" x2="14" y2="4" />
+        </svg>
+      </span>
+      <span className="brand-text">
+        <span className="brand-name">Addis Eats</span>
+        <span className="brand-sub">Traditional & Western</span>
+      </span>
+    </Link>
+  );
+
+  // The staff sign-in page shows only the logo: no customer links, cart,
+  // sign-in button or mobile tab bar.
+  if (pathname === "/staff/signin") {
+    return (
+      <header className="site-header">
+        <div className="site-header__inner">
+          {brand}
+          <div className="site-header__actions">
+            <ThemeToggle />
+          </div>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <>
       <header className="site-header">
         <div className="site-header__inner">
-          <Link href="/" className="brand" aria-label="Addis Eats Traditional & Western">
-            <span className="brand-logo-icon" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
-                <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
-                <line x1="6" y1="1" x2="6" y2="4" />
-                <line x1="10" y1="1" x2="10" y2="4" />
-                <line x1="14" y1="1" x2="14" y2="4" />
-              </svg>
-            </span>
-            <span className="brand-text">
-              <span className="brand-name">Addis Eats</span>
-              <span className="brand-sub">Traditional & Western</span>
-            </span>
-          </Link>
+          {brand}
 
           {/* Desktop Navigation - Hidden on mobile viewports */}
           <nav aria-label="Main Navigation" className="site-header__nav">

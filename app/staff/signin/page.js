@@ -55,7 +55,7 @@ export default async function StaffSignInPage({ searchParams }) {
               name="email"
               type="email"
               defaultValue={params?.email || ""}
-              placeholder="name@addiseats.com"
+              placeholder="you@example.com"
               required
               autoComplete="username"
             />
