@@ -35,9 +35,10 @@ export function ChangePasswordForm({ hasPassword = true }) {
       </section>
     );
   }
+  // Collapsed to a single "Change password" row until clicked.
   return (
-    <section className="card-panel">
-      <h2>Change password</h2>
+    <details className="card-panel collapsible-panel">
+      <summary>Change password</summary>
       <form onSubmit={(event) => submit(event, "Password updated.")}>
         <div className="field">
           <label htmlFor="currentPassword">Current password</label>
@@ -59,7 +60,7 @@ export function ChangePasswordForm({ hasPassword = true }) {
           {state.pending ? "Saving…" : "Update password"}
         </button>
       </form>
-    </section>
+    </details>
   );
 }
 

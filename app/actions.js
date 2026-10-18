@@ -12,6 +12,7 @@ import {
 } from "@/lib/validation";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { findAuthUserByEmail } from "@/lib/supabase/admin";
 import {
   createOrder,
   priceOrderItems,
@@ -84,12 +85,12 @@ function destinationFor(role, rawNext) {
   return ROLE_HOME[role] || "/menu";
 }
 
-function signInUrl(params) {
+function signInUrl(params, page = "/signin") {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value) search.set(key, String(value));
   }
-  return `/signin?${search.toString()}`;
+  return `${page}?${search.toString()}`;
 }
 
 async function getOrigin() {
@@ -251,6 +252,13 @@ async function submitOrderReviewActionImpl(formData) {
  * Email + password sign-in for everyone. Staff and admin accounts live in the
  * local account store; customers use Supabase when it is configured.
  */
+const NO_ACCOUNT_MESSAGE = "There's no account with this email yet. Create an account to get started.";
+const STAFF_ON_CUSTOMER_PAGE = "This is a restaurant staff account. Please sign in on the staff sign-in page.";
+
+/**
+ * Customer sign-in (/signin). Staff and admin accounts are sent to the staff
+ * sign-in page instead, so the two never overlap.
+ */
 async function signInImpl(formData) {
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
@@ -261,18 +269,28 @@ async function signInImpl(formData) {
     redirect(signInUrl({ email, next: rawNext, error: JSON.stringify(fieldErrors) }));
   }
 
-  let role = null;
-  let errorMessage = "Incorrect email or password.";
+  const local = findAccountByEmail(email);
+  if (local && local.role !== "customer") {
+    redirect(signInUrl({ email, error: STAFF_ON_CUSTOMER_PAGE, hint: "staff" }));
+  }
 
-  if (findAccountByEmail(email) || !isSupabaseConfigured()) {
+  let role = null;
+  let errorMessage = "Incorrect password. Please try again.";
+  let hint = "";
+
+  if (local || !isSupabaseConfigured()) {
+    if (!local) {
+      redirect(signInUrl({ email, next: rawNext, error: NO_ACCOUNT_MESSAGE, hint: "register" }));
+    }
     const result = authenticate(email, password);
     if (result.ok) {
       await createSession(result.account);
       role = result.account.role;
     } else {
-      errorMessage = result.error;
+      errorMessage = result.error === "Incorrect email or password." ? "Incorrect password. Please try again." : result.error;
     }
   } else {
+    let failure = null;
     try {
       const supabase = await createSupabaseServerClient();
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -283,18 +301,66 @@ async function signInImpl(formData) {
           .eq("id", data.user.id)
           .maybeSingle();
         role = profile?.role || "customer";
-      } else if (error?.code === "email_not_confirmed") {
-        errorMessage = "Confirm your email address first, then sign in.";
+      } else {
+        failure = error?.code || "invalid_credentials";
       }
     } catch {
       errorMessage = "The sign-in service is unavailable. Please try again.";
     }
+
+    if (failure === "email_not_confirmed") {
+      errorMessage = "Please confirm your email first: open the link we emailed you, then sign in.";
+    } else if (failure) {
+      // Explain the failure instead of a generic "invalid credentials".
+      const existing = await findAuthUserByEmail(email);
+      if (existing && !existing.exists) {
+        errorMessage = NO_ACCOUNT_MESSAGE;
+        hint = "register";
+      } else if (existing?.exists && !existing.providers.includes("email") && existing.providers.includes("google")) {
+        errorMessage = "This email signed up with Google. Use \"Continue with Google\" below.";
+        hint = "google";
+      } else if (!existing) {
+        errorMessage = "Incorrect email or password. If you're new, create an account first.";
+        hint = "register";
+      }
+    }
   }
 
   if (!role) {
-    redirect(signInUrl({ email, next: rawNext, error: errorMessage }));
+    redirect(signInUrl({ email, next: rawNext, error: errorMessage, hint }));
   }
   redirect(destinationFor(role, rawNext));
+}
+
+/**
+ * Restaurant staff sign-in (/staff/signin): admin, kitchen and delivery only.
+ * Staff accounts are created by the admin; there is no sign-up here.
+ */
+async function staffSignInImpl(formData) {
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
+  const rawNext = formData.get("next") || "";
+  const back = (params) => redirect(signInUrl({ email, next: rawNext, ...params }, "/staff/signin"));
+
+  const { valid, fieldErrors } = validateSignIn({ email, password });
+  if (!valid) back({ error: JSON.stringify(fieldErrors) });
+
+  const local = findAccountByEmail(email);
+  if (!local || local.role === "customer") {
+    const customer = local || (await findAuthUserByEmail(email))?.exists;
+    back(
+      customer
+        ? { error: "This page is only for restaurant staff. Customers sign in on the customer page.", hint: "customer" }
+        : { error: "There's no staff account with this email. Ask the restaurant admin to create one for you." }
+    );
+  }
+
+  const result = authenticate(email, password);
+  if (!result.ok) {
+    back({ error: result.error === "Incorrect email or password." ? "Incorrect password. Please try again." : result.error });
+  }
+  await createSession(result.account);
+  redirect(destinationFor(result.account.role, rawNext));
 }
 
 /**
@@ -344,8 +410,16 @@ async function signUpImpl(formData) {
   if (!valid) back(JSON.stringify(fieldErrors));
   const destination = destinationFor("customer", rawNext);
 
-  if (findAccountByEmail(email)) {
-    back(JSON.stringify({ email: "An account with this email already exists. Sign in instead." }));
+  const existingLocal = findAccountByEmail(email);
+  if (existingLocal) {
+    back(
+      JSON.stringify({
+        email:
+          existingLocal.role === "customer"
+            ? "An account with this email already exists. Sign in instead."
+            : "This email belongs to a restaurant staff account. Use a different email.",
+      })
+    );
   }
 
   if (isSupabaseConfigured()) {
@@ -376,6 +450,11 @@ async function signUpImpl(formData) {
       };
       back(messages[result.error.code] || "Account creation failed. Please try again in a moment.");
     }
+    // With email confirmation on, Supabase answers an already-registered email
+    // with a user that has no identities instead of an error.
+    if (result.data?.user && Array.isArray(result.data.user.identities) && result.data.user.identities.length === 0) {
+      back(JSON.stringify({ email: "An account with this email already exists. Sign in instead, or use Continue with Google." }));
+    }
     if (!result.data?.session) {
       redirect(`/signin?registered=1&email=${encodeURIComponent(email)}`);
     }
@@ -389,8 +468,9 @@ async function signUpImpl(formData) {
 }
 
 async function signOutImpl() {
+  const user = await getSession();
   await clearSession();
-  redirect("/");
+  redirect(user && user.role !== "customer" ? "/staff/signin" : "/");
 }
 
 // ---------------------------------------------------------------------------
@@ -724,6 +804,10 @@ export async function submitOrderReviewAction(...args) {
 
 export async function signIn(...args) {
   return withData(() => signInImpl(...args));
+}
+
+export async function staffSignIn(...args) {
+  return withData(() => staffSignInImpl(...args));
 }
 
 export async function signInWithGoogle(...args) {

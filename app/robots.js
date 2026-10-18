@@ -5,7 +5,7 @@ export default function robots() {
     rules: {
       userAgent: "*",
       allow: ["/", "/menu", "/privacy", "/terms"],
-      disallow: ["/cart", "/checkout", "/orders", "/kitchen", "/delivery", "/admin", "/dashboard", "/track", "/profile", "/signin", "/api/", "/media/"],
+      disallow: ["/cart", "/checkout", "/orders", "/kitchen", "/delivery", "/admin", "/dashboard", "/track", "/profile", "/signin", "/staff", "/api/", "/media/"],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
   };

@@ -15,7 +15,7 @@ export default async function KitchenPage() {
   const user = await getSession();
 
   if (!user) {
-    redirect("/signin?next=/kitchen");
+    redirect("/staff/signin?next=/kitchen");
   }
 
   if (user.role !== "staff" && user.role !== "admin") {

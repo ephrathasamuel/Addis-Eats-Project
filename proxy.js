@@ -2,6 +2,12 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 
+// Staff areas use their own sign-in page, separate from customers.
+const STAFF_AREAS = ["/admin", "/kitchen", "/delivery", "/dashboard"];
+function signInPathFor(pathname) {
+  return STAFF_AREAS.some((area) => pathname === area || pathname.startsWith(`${area}/`)) ? "/staff/signin" : "/signin";
+}
+
 function copyRefreshCookies(from, to) {
   for (const cookie of from.cookies.getAll()) {
     to.cookies.set(cookie);
@@ -22,7 +28,7 @@ export async function proxy(request) {
 
   if (!config) {
     if (!hasLocalSession && !isApiRequest && !isOptionalProfilePage) {
-      const signInUrl = new URL("/signin", request.url);
+      const signInUrl = new URL(signInPathFor(pathname), request.url);
       signInUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
       return NextResponse.redirect(signInUrl);
     }
@@ -59,7 +65,7 @@ export async function proxy(request) {
 
   const isAuthenticated = Boolean(data?.claims?.sub || hasLocalSession);
   if (!isAuthenticated && !isApiRequest && !isOptionalProfilePage) {
-    const signInUrl = new URL("/signin", request.url);
+    const signInUrl = new URL(signInPathFor(pathname), request.url);
     signInUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     const redirectResponse = NextResponse.redirect(signInUrl);
     copyRefreshCookies(response, redirectResponse);

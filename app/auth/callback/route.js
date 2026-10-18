@@ -20,9 +20,12 @@ export async function GET(request) {
 
   // Google / OAuth errors (e.g. the user closed the account chooser).
   if (url.searchParams.get("error")) {
-    return NextResponse.redirect(
-      new URL("/signin?error=Google+sign-in+was+cancelled+or+failed.+Please+try+again.", url.origin)
-    );
+    const detail = url.searchParams.get("error_description");
+    const message =
+      url.searchParams.get("error") === "access_denied"
+        ? "Google sign-in was cancelled. Please try again."
+        : `Google sign-in failed${detail ? `: ${detail}` : ""}. Please try again.`;
+    return NextResponse.redirect(new URL(`/signin?error=${encodeURIComponent(message)}`, url.origin));
   }
 
   const supabase = await createSupabaseServerClient();
@@ -48,5 +51,22 @@ export async function GET(request) {
     );
   }
 
-  return NextResponse.redirect(new URL(safeDestination(url.searchParams.get("next")), url.origin));
+  const response = NextResponse.redirect(new URL(safeDestination(url.searchParams.get("next")), url.origin));
+
+  // First sign-in of a brand-new account (Google, or a just-confirmed email):
+  // leave a short-lived note so the next page can say the account was created.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const created = new Date(user.created_at).getTime();
+    const lastSignIn = new Date(user.last_sign_in_at || user.created_at).getTime();
+    const isNew = url.searchParams.get("type") === "signup" || (Date.now() - created < 10 * 60 * 1000 && lastSignIn - created < 60 * 1000);
+    if (isNew) {
+      response.cookies.set("addis_welcome", user.app_metadata?.provider === "google" ? "google" : "email", {
+        path: "/",
+        maxAge: 300,
+        sameSite: "lax",
+      });
+    }
+  }
+  return response;
 }

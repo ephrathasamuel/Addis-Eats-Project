@@ -2,6 +2,7 @@ import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Providers } from "@/components/Providers";
+import { WelcomeNotice } from "@/components/WelcomeNotice";
 import { getSession } from "@/lib/session";
 
 export const metadata = {
@@ -57,7 +58,10 @@ export default async function RootLayout({ children }) {
       <body>
         <Providers initialUser={initialUser}>
           <Header />
-          <main>{children}</main>
+          <main>
+            <WelcomeNotice />
+            {children}
+          </main>
           <Footer />
         </Providers>
       </body>

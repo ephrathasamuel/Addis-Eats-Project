@@ -15,7 +15,7 @@ export default async function DeliveryPage() {
   const user = await getSession();
 
   if (!user) {
-    redirect("/signin?next=/delivery");
+    redirect("/staff/signin?next=/delivery");
   }
 
   if (user.role !== "delivery" && user.role !== "admin") {

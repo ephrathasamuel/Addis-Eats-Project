@@ -13,7 +13,7 @@ export const metadata = {
 
 export default async function StaffPage() {
   const user = await getSession();
-  if (!user) redirect("/signin?next=/admin/staff");
+  if (!user) redirect("/staff/signin?next=/admin/staff");
   if (user.role !== "admin") redirect("/menu");
 
   const today = getStaffStats(startOfToday());

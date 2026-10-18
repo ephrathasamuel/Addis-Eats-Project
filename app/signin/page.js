@@ -34,6 +34,8 @@ export default async function SignInPage({ searchParams }) {
   const authError = params?.error && Object.keys(fieldErrors).length === 0 ? params.error : null;
   const registered = params?.registered === "1";
   const googleEnabled = isSupabaseConfigured();
+  const hint = params?.hint || "";
+  const emailParam = params?.email ? `&email=${encodeURIComponent(params.email)}` : "";
   const withNext = (path) => (next ? `${path}${path.includes("?") ? "&" : "?"}next=${encodeURIComponent(next)}` : path);
 
   return (
@@ -43,7 +45,7 @@ export default async function SignInPage({ searchParams }) {
         <p className="auth-subtitle">
           {registering
             ? "Create a customer account to place and track orders."
-            : "Customers and restaurant staff sign in here."}
+            : "Sign in to order food and track your deliveries."}
         </p>
 
         <form action={registering ? signUp : signIn} key={registering ? "register" : "signin"}>
@@ -95,7 +97,21 @@ export default async function SignInPage({ searchParams }) {
               Account created. Check your email to confirm it, then sign in.
             </p>
           )}
-          {authError && <p className="field-error" role="alert">{authError}</p>}
+          {authError && (
+            <div className="auth-notice" role="alert">
+              <p>{authError}</p>
+              {hint === "register" && (
+                <Link href={`${withNext("/signin?mode=register")}${emailParam}`} className="btn-primary btn-block">
+                  Create an account
+                </Link>
+              )}
+              {hint === "staff" && (
+                <Link href={`/staff/signin?${emailParam.slice(1)}`} className="btn-primary btn-block">
+                  Go to staff sign-in
+                </Link>
+              )}
+            </div>
+          )}
 
           <SubmitButton className="btn-primary btn-block" pendingText={registering ? "Creating account…" : "Signing in…"}>
             {registering ? "Create customer account" : "Sign in"}
@@ -122,8 +138,8 @@ export default async function SignInPage({ searchParams }) {
           </Link>
         </p>
         {!registering && (
-          <p className="auth-subtitle" style={{ marginTop: "0.4rem", fontSize: "0.8rem" }}>
-            Kitchen and delivery staff: your manager creates your account. Ask them if you need a password reset.
+          <p className="auth-subtitle auth-staff-link">
+            Restaurant staff? <Link href="/staff/signin">Staff sign-in</Link>
           </p>
         )}
       </div>

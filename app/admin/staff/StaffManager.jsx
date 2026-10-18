@@ -183,7 +183,7 @@ export function StaffManager({ initialStaff }) {
         <Modal title="Account created" onClose={() => setCreated(null)}>
           <p>Share these sign-in details with {created.name}. They can change the password from their profile.</p>
           <div className="board__hint">
-            <div>Sign in at: <strong>/signin</strong></div>
+            <div>Sign in at: <strong>/staff/signin</strong></div>
             <div>Email: <strong>{created.email}</strong></div>
             <div>Temporary password: <strong>{created.password}</strong></div>
             {created.pin && <div>Kitchen tablet PIN: <strong>{created.pin}</strong></div>}

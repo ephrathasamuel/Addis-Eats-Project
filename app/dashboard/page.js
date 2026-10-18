@@ -13,7 +13,7 @@ export const metadata = {
 
 export default async function DashboardPage() {
   const user = await getSession();
-  if (!user) redirect("/signin?next=/dashboard");
+  if (!user) redirect("/staff/signin?next=/dashboard");
   if (user.role !== "admin") redirect("/");
 
   // Aggregate server-side so only compact summary data crosses the boundary

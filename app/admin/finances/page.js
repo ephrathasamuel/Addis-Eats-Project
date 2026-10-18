@@ -10,7 +10,7 @@ export default async function AdminFinancesPage() {
   const user = await getSession();
 
   if (!user || user.role !== "admin") {
-    redirect("/signin?next=/admin/finances");
+    redirect("/staff/signin?next=/admin/finances");
   }
 
   const allOrders = getAllOrders();

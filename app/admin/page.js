@@ -15,7 +15,7 @@ export const metadata = {
 export default async function AdminPage() {
   const user = await getSession();
 
-  if (!user) redirect("/signin?next=/admin");
+  if (!user) redirect("/staff/signin?next=/admin");
   if (user.role === "delivery") redirect("/delivery");
   if (user.role === "staff") redirect("/kitchen");
   // Customers are quietly sent to the menu; the admin area is never linked for them.
