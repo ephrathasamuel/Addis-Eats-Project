@@ -53,7 +53,9 @@ export function OrderStatus({ id, initial }) {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [editingReview, setEditingReview] = useState(false);
   // Reviews can be changed for 48 hours after first posting.
-  const reviewedAtMs = current.reviewedAt ? new Date(current.reviewedAt).getTime() : NaN;
+  // Older reviews have no reviewedAt; count their 48 hours from receipt/delivery.
+  const reviewStart = current.reviewedAt || current.receivedAt || current.deliveredAt;
+  const reviewedAtMs = reviewStart ? new Date(reviewStart).getTime() : NaN;
   const canEditReview = Number.isFinite(reviewedAtMs) && Date.now() - reviewedAtMs < 48 * 60 * 60 * 1000;
 
   const getStatusBadge = (status) => {

@@ -166,10 +166,10 @@ export default function CartPage() {
             <div className="breakdown-row breakdown-row--multiline">
               <div className="breakdown-label">
                 <span>Delivery Fee</span>
-                <small className="breakdown-sub">(set by neighborhood at checkout)</small>
+                <small className="breakdown-sub">(by distance, shown at checkout)</small>
               </div>
               <div className="breakdown-val">
-                <span>50 to 110 ETB</span>
+                <span>From 115 ETB</span>
               </div>
             </div>
             <div className="breakdown-row breakdown-row--grand">

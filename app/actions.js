@@ -59,6 +59,7 @@ import {
 import { resolveImageInput } from "@/lib/media";
 import { addDailyExpense } from "@/lib/finances";
 import { describeDrive, estimateDrive } from "@/lib/routing";
+import { quoteDelivery } from "@/lib/pricing";
 import { notifyRole, notifyUser } from "@/lib/push";
 
 // Tells the customer who placed an order about a status change.
@@ -182,6 +183,8 @@ async function placeOrderImpl(formData) {
     return { ok: false, error: priced.error };
   }
 
+  const driveEstimate = deliveryCoordinates ? await estimateDrive(deliveryCoordinates) : null;
+  const quote = await quoteDelivery({ location: finalLocation, pinEstimate: driveEstimate });
   const order = createOrder({
     userId: session.id,
     name,
@@ -191,7 +194,8 @@ async function placeOrderImpl(formData) {
     location: finalLocation,
     addressDetails,
     deliveryCoordinates,
-    driveEstimate: deliveryCoordinates ? await estimateDrive(deliveryCoordinates) : null,
+    driveEstimate,
+    quote,
   });
 
   notifyRole("staff", {
@@ -208,7 +212,9 @@ async function estimateDeliveryImpl(latitude, longitude) {
   const coordinates = parseDeliveryCoordinates(latitude, longitude);
   if (!coordinates) return { ok: false };
   const estimate = await estimateDrive(coordinates);
-  return estimate ? { ok: true, estimate, text: describeDrive(estimate) } : { ok: false };
+  if (!estimate) return { ok: false };
+  const quote = await quoteDelivery({ pinEstimate: estimate });
+  return { ok: true, estimate, text: describeDrive(estimate), fee: quote.fee };
 }
 
 async function cancelOrderImpl(orderId) {
@@ -836,9 +842,15 @@ async function adminEditOrderActionImpl(formData) {
   const id = formData.get("id");
   const phone = formData.get("phone");
   if (phone && !normalizeEthiopianPhone(phone)) return { ok: false, error: "Enter a valid Ethiopian phone number." };
+  const location = String(formData.get("location") || "");
   const res = adminEditOrderRecord(
     id,
-    { phone: phone ? normalizeEthiopianPhone(phone) : "", location: formData.get("location"), note: formData.get("note") },
+    {
+      phone: phone ? normalizeEthiopianPhone(phone) : "",
+      location,
+      note: formData.get("note"),
+      quote: location ? await quoteDelivery({ location }) : null,
+    },
     user.name
   );
   return res.ok ? { ok: true, order: toOrderClientData(res.order) } : res;

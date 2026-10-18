@@ -150,7 +150,7 @@ function CustomerOrders({ userId }) {
                     <strong style={{ fontSize: "1.15rem", color: "var(--brand-dark)" }}>{order.total} ETB</strong>
                   </div>
                   <Link href={`/orders/${order.id}`} className="btn-ghost" style={{ fontSize: "0.85rem", padding: "0.45rem 0.85rem" }}>
-                    Track Order
+                    {["delivered", "cancelled"].includes(order.status) ? "View order" : "Track order"}
                   </Link>
                 </div>
               </div>

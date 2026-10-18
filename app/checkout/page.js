@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { getKitchenEstimate, priceOrderItems } from "@/lib/orders";
+import { getPricing, quoteAllAreas } from "@/lib/pricing";
 import OrderForm from "./OrderForm";
 
 export const dynamic = "force-dynamic";
@@ -139,10 +140,10 @@ export default async function CheckoutPage({ searchParams }) {
               <div className="breakdown-row breakdown-row--multiline">
                 <div className="breakdown-label">
                   <span>Neighborhood Delivery</span>
-                  <small className="breakdown-sub">(Calculated by location in form)</small>
+                  <small className="breakdown-sub">(by distance, calculated in the form)</small>
                 </div>
                 <div className="breakdown-val">
-                  <span>From +50 ETB</span>
+                  <span>From +{getPricing().baseFee} ETB</span>
                 </div>
               </div>
             </div>
@@ -154,7 +155,7 @@ export default async function CheckoutPage({ searchParams }) {
               <h2 id="delivery-details-heading">Delivery Details</h2>
             </div>
 
-            <OrderForm itemsRaw={itemsRaw} foodSubtotal={subtotal} initialName={user.name || ""} kitchenEstimate={items.length ? getKitchenEstimate(items) : null} />
+            <OrderForm itemsRaw={itemsRaw} foodSubtotal={subtotal} initialName={user.name || ""} kitchenEstimate={items.length ? getKitchenEstimate(items) : null} areaFees={items.length ? await quoteAllAreas() : {}} pricing={getPricing()} />
 
             <div className="payment-options-note">
               <h4>Accepted Payment Methods</h4>

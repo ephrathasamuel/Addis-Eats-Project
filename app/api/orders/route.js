@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { normalizeEthiopianPhone, parseDeliveryCoordinates, validateOrder } from "@/lib/validation";
 import { createOrder, priceOrderItems, toOrderClientData } from "@/lib/orders";
 import { getSession } from "@/lib/session";
+import { quoteDelivery } from "@/lib/pricing";
+import { estimateDrive } from "@/lib/routing";
 import { flushData } from "@/lib/datastore";
 
 // The API shares checkout validation and only creates orders for the signed-in customer.
@@ -44,15 +46,20 @@ export async function POST(request) {
     return NextResponse.json({ error: priced.error }, { status: 422 });
   }
 
+  const location = typeof body.location === "string" && body.location.trim() ? body.location.trim() : "Bole";
+  const driveEstimate = deliveryCoordinates ? await estimateDrive(deliveryCoordinates) : null;
+  const quote = await quoteDelivery({ location, pinEstimate: driveEstimate });
   const order = createOrder({
     userId: user.id,
     name: String(body.name).trim(),
     phone: normalizeEthiopianPhone(body.phone),
     items: priced.items,
     foodTotal: priced.foodTotal,
-    location: typeof body.location === "string" && body.location.trim() ? body.location.trim() : "Bole",
+    location,
     addressDetails: typeof body.addressDetails === "string" ? body.addressDetails.trim() : "",
     deliveryCoordinates,
+    driveEstimate,
+    quote,
   });
 
   await flushData();

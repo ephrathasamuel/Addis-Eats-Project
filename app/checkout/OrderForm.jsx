@@ -14,7 +14,7 @@ function validatePhone(value) {
   return null;
 }
 
-export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", kitchenEstimate }) {
+export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", kitchenEstimate, areaFees = {}, pricing }) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [phone, setPhone] = useState("");
@@ -31,7 +31,11 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
 
   const matchedLocation = DELIVERY_LOCATIONS.find((l) => l.name === selectedLocation) || DELIVERY_LOCATIONS[0];
   const isOther = selectedLocation === "Other Neighborhood";
-  const grandTotal = foodSubtotal + matchedLocation.fee;
+  // Distance-based fee: the exact road distance when a pin is shared,
+  // otherwise the distance to the centre of the chosen neighborhood.
+  const areaQuote = areaFees[selectedLocation] || null;
+  const deliveryFee = deliveryCoordinates && drive?.fee ? drive.fee : areaQuote?.fee ?? matchedLocation.fee;
+  const grandTotal = foodSubtotal + deliveryFee;
 
   function clearError(key) {
     if (errors[key]) setErrors((previous) => ({ ...previous, [key]: null }));
@@ -162,7 +166,8 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
         >
           {DELIVERY_LOCATIONS.map((loc) => (
             <option key={loc.id} value={loc.name}>
-              {loc.name} (+{loc.fee} ETB delivery · about {loc.driveTime})
+              {loc.name} (+{areaFees[loc.name]?.fee ?? loc.fee} ETB delivery
+              {areaFees[loc.name]?.km ? ` · ~${areaFees[loc.name].km} km` : ""})
             </option>
           ))}
         </select>
@@ -243,7 +248,7 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
       <div className="checkout-fee-box">
         <div className="checkout-fee-box__row">
           <span>Delivery fee ({isOther ? "Other neighborhood" : matchedLocation.name})</span>
-          <strong>+{matchedLocation.fee} ETB</strong>
+          <strong>+{deliveryFee} ETB</strong>
         </div>
         {kitchenEstimate && (
           <div className="checkout-fee-box__row">
@@ -253,7 +258,13 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
         )}
         <div className="checkout-fee-box__row">
           <span>Drive time once the food is ready</span>
-          <strong>{deliveryCoordinates && drive ? `about ${drive.estimate.minutes} min` : matchedLocation.driveTime}</strong>
+          <strong>
+            {deliveryCoordinates && drive
+              ? `about ${drive.estimate.minutes} min`
+              : areaQuote?.minutes
+              ? `about ${areaQuote.minutes} min`
+              : matchedLocation.driveTime}
+          </strong>
         </div>
         <p>
           {kitchenEstimate?.basis === "dishes"
@@ -263,7 +274,8 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
             : ""}
           {deliveryCoordinates && drive
             ? `${drive.text}.`
-            : "Drive time is a neighborhood range. Share your location above for an estimate for your exact address."}
+            : "Fee and drive time are for the centre of your neighborhood. Share your location above for your exact address."}
+          {pricing && ` Delivery is ${pricing.baseFee} ETB for the first ${pricing.baseKm} km, then ${pricing.perKm} ETB per extra km.`}
         </p>
       </div>
 
