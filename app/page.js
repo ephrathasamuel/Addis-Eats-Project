@@ -149,7 +149,9 @@ export default async function HomePage() {
         <div className="home-section__header">
           <div className="home-section__title-group">
             <span className="section-eyebrow">Heritage Cooking</span>
-            <h2>Traditional Ethiopian Specialties</h2>
+            <h2>
+              Traditional Ethiopian<br />Specialties
+            </h2>
           </div>
           <Link
             href="/menu?category=Traditional"
@@ -175,7 +177,9 @@ export default async function HomePage() {
         <div className="home-section__header">
           <div className="home-section__title-group">
             <span className="section-eyebrow">Artisanal & Modern</span>
-            <h2>Western Kitchen Favorites</h2>
+            <h2>
+              Western Kitchen<br />Favorites
+            </h2>
           </div>
           <Link
             href="/menu?category=Western"
@@ -196,17 +200,19 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Traditional Buna Ceremony & Refreshing Beverages */}
+      {/* Coffee & Beverages Showcase */}
       <section className="home-section">
         <div className="home-section__header">
           <div className="home-section__title-group">
             <span className="section-eyebrow">Ceremonial & Cold</span>
-            <h2>Coffee Ceremony & Beverages</h2>
+            <h2>
+              Coffee and<br />Beverages
+            </h2>
           </div>
           <Link
             href="/menu?category=Drinks"
             className="section-more-link"
-            aria-label="See all coffee ceremony and beverages"
+            aria-label="See all coffee and beverages"
           >
             <span>See all</span>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

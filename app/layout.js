@@ -4,6 +4,7 @@ import { Footer } from "@/components/Footer";
 import { Providers } from "@/components/Providers";
 import { WelcomeNotice } from "@/components/WelcomeNotice";
 import { HideOnStaffSignIn } from "@/components/HideOnStaffSignIn";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { getSession } from "@/lib/session";
 
 export const metadata = {
@@ -66,6 +67,7 @@ export default async function RootLayout({ children }) {
           <HideOnStaffSignIn>
             <Footer />
           </HideOnStaffSignIn>
+          <ScrollToTop />
         </Providers>
       </body>
     </html>
