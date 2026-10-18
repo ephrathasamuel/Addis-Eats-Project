@@ -147,23 +147,21 @@ export default async function HomePage() {
       {/* Traditional Ethiopian Cuisine Showcase */}
       <section className="home-section">
         <div className="home-section__header">
-          <div className="home-section__title-group">
-            <span className="section-eyebrow">Heritage Cooking</span>
-            <h2>
-              Traditional Ethiopian<br />Specialties
-            </h2>
+          <span className="section-eyebrow">Heritage Cooking</span>
+          <div className="home-section__row">
+            <h2>Traditional Ethiopian Specialties</h2>
+            <Link
+              href="/menu?category=Traditional"
+              className="section-more-link"
+              aria-label="See all traditional Ethiopian specialties"
+            >
+              <span>See all</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12h14" />
+                <path d="M12 5l7 7-7 7" />
+              </svg>
+            </Link>
           </div>
-          <Link
-            href="/menu?category=Traditional"
-            className="section-more-link"
-            aria-label="See all traditional Ethiopian specialties"
-          >
-            <span>See all</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M5 12h14" />
-              <path d="M12 5l7 7-7 7" />
-            </svg>
-          </Link>
         </div>
         <div className="dish-grid">
           {traditional.map((dish) => (
@@ -175,23 +173,21 @@ export default async function HomePage() {
       {/* Western Cuisine Showcase */}
       <section className="home-section">
         <div className="home-section__header">
-          <div className="home-section__title-group">
-            <span className="section-eyebrow">Artisanal & Modern</span>
-            <h2>
-              Western Kitchen<br />Favorites
-            </h2>
+          <span className="section-eyebrow">Artisanal & Modern</span>
+          <div className="home-section__row">
+            <h2>Western Kitchen Favorites</h2>
+            <Link
+              href="/menu?category=Western"
+              className="section-more-link"
+              aria-label="See all western kitchen favorites"
+            >
+              <span>See all</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12h14" />
+                <path d="M12 5l7 7-7 7" />
+              </svg>
+            </Link>
           </div>
-          <Link
-            href="/menu?category=Western"
-            className="section-more-link"
-            aria-label="See all western kitchen favorites"
-          >
-            <span>See all</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M5 12h14" />
-              <path d="M12 5l7 7-7 7" />
-            </svg>
-          </Link>
         </div>
         <div className="dish-grid">
           {western.map((dish) => (
@@ -203,23 +199,21 @@ export default async function HomePage() {
       {/* Coffee & Beverages Showcase */}
       <section className="home-section">
         <div className="home-section__header">
-          <div className="home-section__title-group">
-            <span className="section-eyebrow">Ceremonial & Cold</span>
-            <h2>
-              Coffee and<br />Beverages
-            </h2>
+          <span className="section-eyebrow">Ceremonial & Cold</span>
+          <div className="home-section__row">
+            <h2>Coffee Ceremony & Beverages</h2>
+            <Link
+              href="/menu?category=Drinks"
+              className="section-more-link"
+              aria-label="See all coffee ceremony and beverages"
+            >
+              <span>See all</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12h14" />
+                <path d="M12 5l7 7-7 7" />
+              </svg>
+            </Link>
           </div>
-          <Link
-            href="/menu?category=Drinks"
-            className="section-more-link"
-            aria-label="See all coffee and beverages"
-          >
-            <span>See all</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M5 12h14" />
-              <path d="M12 5l7 7-7 7" />
-            </svg>
-          </Link>
         </div>
         <div className="dish-grid">
           {drinks.map((dish) => (
