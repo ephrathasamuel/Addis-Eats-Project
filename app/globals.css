@@ -3237,3 +3237,25 @@ button:active:not(:disabled),
   }
 }
 
+/* Profile order history cards */
+.profile-order-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.profile-order-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.profile-order-card__total span {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.profile-order-card__total strong {
+  font-size: 1.15rem;
+  color: var(--brand-dark);
+}

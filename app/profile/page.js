@@ -114,12 +114,8 @@ function CustomerOrders({ userId }) {
           {recentOrders.map((order) => {
             const [background, color] = STATUS_COLORS[order.status] || ["var(--brand-light)", "var(--brand-dark)"];
             return (
-              <div
-                key={order.id}
-                className="card-panel"
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}
-              >
-                <div style={{ flex: 1, minWidth: "240px" }}>
+              <div key={order.id} className="card-panel profile-order-card">
+                <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.35rem" }}>
                     <strong style={{ fontSize: "1.05rem" }}>Order #{order.id}</strong>
                     <span
@@ -144,12 +140,12 @@ function CustomerOrders({ userId }) {
                     {order.items?.map((i) => `${i.name} (${i.qty})`).join(" · ") || "Dishes in order"}
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
-                  <div style={{ textAlign: "right" }}>
-                    <span style={{ fontSize: "0.75rem", color: "var(--muted)", display: "block" }}>Total</span>
-                    <strong style={{ fontSize: "1.15rem", color: "var(--brand-dark)" }}>{order.total} ETB</strong>
-                  </div>
-                  <Link href={`/orders/${order.id}`} className="btn-ghost" style={{ fontSize: "0.85rem", padding: "0.45rem 0.85rem" }}>
+                {/* Total on the left, the button in the bottom-right corner */}
+                <div className="profile-order-card__footer">
+                  <span className="profile-order-card__total">
+                    <span>Total</span> <strong>{order.total} ETB</strong>
+                  </span>
+                  <Link href={`/orders/${order.id}?from=profile`} className="btn-ghost" style={{ fontSize: "0.85rem", padding: "0.45rem 0.85rem" }}>
                     {["delivered", "cancelled"].includes(order.status) ? "View order" : "Track order"}
                   </Link>
                 </div>

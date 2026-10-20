@@ -8,7 +8,7 @@ import { confirmDeliveryAction, submitOrderReviewAction, editOrderReviewAction, 
 import { Avatar } from "@/components/Modal";
 import { PushToggle } from "@/components/PushToggle";
 
-export function OrderStatus({ id, initial }) {
+export function OrderStatus({ id, initial, back = { href: "/orders", label: "Back to order history" } }) {
   const [cancelling, setCancelling] = useState(false);
 
   // SWR live polling every 5s, pausing when delivered or cancelled
@@ -519,8 +519,8 @@ export function OrderStatus({ id, initial }) {
 
       {/* The live map only matters until the food arrives. */}
       <div className={`order-actions order-actions--${2 + (isFinished ? 0 : 1) + (isCancellable ? 1 : 0)}`}>
-        <Link href="/orders" className="btn-ghost">
-          ← Back to order history
+        <Link href={back.href} className="btn-ghost">
+          ← {back.label}
         </Link>
         <Link href="/menu" className="btn-primary">
           Order more dishes

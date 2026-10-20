@@ -5,8 +5,10 @@ import { OrderStatus } from "./OrderStatus";
 
 export const dynamic = "force-dynamic";
 
-export default async function OrderPage({ params }) {
+export default async function OrderPage({ params, searchParams }) {
   const { id } = await params;
+  // The back button returns to wherever the order was opened from.
+  const fromProfile = (await searchParams)?.from === "profile";
   const user = await getSession();
   if (!user) redirect(`/signin?next=${encodeURIComponent(`/orders/${id}`)}`);
 
@@ -15,7 +17,11 @@ export default async function OrderPage({ params }) {
 
   return (
     <div>
-      <OrderStatus id={id} initial={toOrderClientData(initial)} />
+      <OrderStatus
+        id={id}
+        initial={toOrderClientData(initial)}
+        back={fromProfile ? { href: "/profile", label: "Back to profile" } : { href: "/orders", label: "Back to order history" }}
+      />
     </div>
   );
 }
