@@ -44,6 +44,7 @@ export function ScrollToTop() {
         strokeLinecap="round"
         strokeLinejoin="round"
         aria-hidden="true"
+        style={{ display: "block", flexShrink: 0 }}
       >
         <polyline points="18 15 12 9 6 15" />
       </svg>
