@@ -57,7 +57,7 @@ import {
   DISH_CATEGORIES,
 } from "@/lib/dishes";
 import { resolveImageInput } from "@/lib/media";
-import { addDailyExpense } from "@/lib/finances";
+import { saveDailyExpense } from "@/lib/finances";
 import { describeDrive, estimateDrive } from "@/lib/routing";
 import { quoteDelivery } from "@/lib/pricing";
 import { notifyRole, notifyUser } from "@/lib/push";
@@ -820,20 +820,22 @@ async function restoreDishActionImpl(dishId) {
 // Admin: finances and orders
 // ---------------------------------------------------------------------------
 
+// Costs for any past day; changing a recorded day needs a reason (kept in its history).
 async function addDailyExpenseActionImpl(formData) {
-  if (!(await requireRole("admin"))) return { ok: false, error: "Administrator permissions required." };
-  const date = String(formData.get("date") || "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: "Date is required." };
-
-  const record = addDailyExpense({
-    date,
-    rawMaterials: Math.max(0, Number(formData.get("rawMaterials")) || 0),
-    transport: Math.max(0, Number(formData.get("transport")) || 0),
-    note: String(formData.get("note") || "").slice(0, 300),
+  const user = await requireRole("admin");
+  if (!user) return { ok: false, error: "Administrator permissions required." };
+  const result = saveDailyExpense({
+    date: String(formData.get("date") || ""),
+    rawMaterials: formData.get("rawMaterials"),
+    transport: formData.get("transport"),
+    note: formData.get("note"),
+    reason: formData.get("reason"),
+    by: user.name,
   });
+  if (!result.ok) return result;
   revalidatePath("/admin");
   revalidatePath("/admin/finances");
-  return { ok: true, record };
+  return result;
 }
 
 async function adminEditOrderActionImpl(formData) {

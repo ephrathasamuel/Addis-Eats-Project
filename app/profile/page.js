@@ -68,6 +68,7 @@ export default async function ProfilePage() {
           <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
             <Link href="/admin" className="btn-primary">Admin panel</Link>
             <Link href="/admin/staff" className="btn-secondary">Staff accounts</Link>
+            <Link href="/admin/team" className="btn-secondary">Team performance</Link>
             <Link href="/kitchen" className="btn-secondary">Kitchen</Link>
             <Link href="/delivery" className="btn-secondary">Delivery</Link>
           </div>
@@ -81,9 +82,14 @@ export default async function ProfilePage() {
             {user.role === "staff" ? "Orders you finished today" : "Deliveries you completed today"}:{" "}
             <strong style={{ fontSize: "1.2rem" }}>{todayCount}</strong>
           </p>
-          <Link href={user.role === "staff" ? "/kitchen" : "/delivery"} className="btn-primary">
-            Open the {user.role === "staff" ? "kitchen" : "delivery"} board
-          </Link>
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+            <Link href={user.role === "staff" ? "/kitchen" : "/delivery"} className="btn-primary">
+              Open the {user.role === "staff" ? "kitchen" : "delivery"} board
+            </Link>
+            <Link href={user.role === "staff" ? "/kitchen/history" : "/delivery/history"} className="btn-secondary">
+              My history
+            </Link>
+          </div>
         </section>
       )}
 

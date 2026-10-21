@@ -3108,13 +3108,27 @@ button:active:not(:disabled),
 
 /* Delivery: accepted but not yet on the road; big call buttons */
 .ticket--accepted { border-left-color: #f59e0b; }
+/* Call buttons: soft and quiet, not alarm-red */
 .call-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
   width: 100%;
   min-height: 48px;
+  padding: 0.6rem 1rem;
+  border-radius: 980px;
+  border: 1px solid var(--border);
+  background: var(--brand-light);
+  color: var(--brand-dark);
+  font-size: 0.95rem;
+  font-weight: 650;
   text-decoration: none;
-  font-size: 0.98rem;
 }
-.call-button:hover { text-decoration: none; }
+.call-button:hover {
+  text-decoration: none;
+  border-color: var(--brand);
+}
 
 /* Notifications on/off */
 .push-toggle {
@@ -3350,10 +3364,10 @@ textarea {
     font-weight: 700;
     font-size: 0.92rem;
   }
-  .footer-contact__item:first-child .footer-contact__label::before { content: "📞 "; }
-  .footer-contact__item:nth-child(2) .footer-contact__label::before { content: "✉️ "; }
-  .footer-address::before {
-    content: "📍 ";
+  /* Explore and Legal centred in their halves */
+  .footer-col--explore,
+  .footer-col--legal {
+    text-align: center;
   }
   .footer-brand {
     font-size: 1.35rem;
@@ -3401,4 +3415,182 @@ textarea {
 .no-spinner::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+/* Ledger: change history for a day's costs */
+.ledger-history summary {
+  cursor: pointer;
+  color: var(--brand-dark);
+  font-weight: 650;
+}
+.ledger-history ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1rem;
+}
+.ledger-history li {
+  margin-bottom: 0.35rem;
+}
+
+/* Footer links: no underline (a tap on phones would leave it showing) */
+.site-footer a,
+.site-footer a:hover,
+.site-footer a:focus,
+.site-footer a:active {
+  text-decoration: none;
+}
+.footer-icon {
+  display: none;
+  vertical-align: -3px;
+  color: var(--brand);
+}
+.footer-address {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+@media (max-width: 768px) {
+  .footer-icon {
+    display: inline-block;
+  }
+  .footer-contact__label {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+  }
+}
+
+/* Work history and team performance */
+.history-heading {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 1.15rem;
+}
+.history-days {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.history-day > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.history-day > summary::-webkit-details-marker {
+  display: none;
+}
+.history-day[open] > summary {
+  margin-bottom: 0.75rem;
+}
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.history-list li {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+.history-list__time,
+.history-list__meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.history-list__meta {
+  text-align: right;
+  white-space: nowrap;
+}
+.team-rankings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.team-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.team-table th,
+.team-table td {
+  text-align: left;
+  padding: 0.55rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.team-table th {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.team-table__top {
+  background: var(--brand-light);
+}
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  background: var(--border);
+  color: var(--text);
+}
+.rank-badge--1 { background: var(--brand); color: #fff; }
+.rank-badge--2 { background: var(--brand-dark); color: #fff; opacity: 0.8; }
+.rank-badge--3 { background: var(--brand-light); color: var(--brand-dark); }
+.team-day {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+.team-day h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+.segmented__link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  color: var(--muted);
+  font-weight: 650;
+  font-size: 0.9rem;
+  text-decoration: none;
+  min-height: 40px;
+}
+.segmented__link:hover {
+  text-decoration: none;
+}
+.segmented__link.is-active {
+  background: var(--brand);
+  color: #fff;
+}
+@media (max-width: 900px) {
+  .team-rankings,
+  .team-day {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .history-list li {
+    grid-template-columns: 3rem minmax(0, 1fr);
+  }
+  .history-list__meta {
+    grid-column: 2;
+    text-align: left;
+  }
+  .segmented {
+    flex-wrap: wrap;
+  }
 }

@@ -211,6 +211,11 @@ export function KitchenBoard({ initialSnapshot, viewer }) {
             Shared kitchen tablet
           </button>
         </div>
+        {viewer.role === "staff" && (
+          <a href="/kitchen/history" className="btn-ghost">
+            My history
+          </a>
+        )}
         <button type="button" className="btn-secondary" onClick={() => setShowAvailability(true)}>
           Menu availability{soldOutCount ? ` (${soldOutCount} sold out)` : ""}
         </button>

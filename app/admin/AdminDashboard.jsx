@@ -74,7 +74,10 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Daily Expense insertion state
-  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
+  // Today in Addis Ababa (UTC+3), so late-evening entries land on the right day.
+  const [expenseDate, setExpenseDate] = useState(() => new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10));
+  const [expenseReason, setExpenseReason] = useState("");
+  const [expenseError, setExpenseError] = useState("");
   const [expenseRaw, setExpenseRaw] = useState("");
   const [expenseTransport, setExpenseTransport] = useState("");
   const [expenseNote, setExpenseNote] = useState("");
@@ -204,28 +207,41 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
     }
   };
 
+  // Picking a day that already has costs loads them, so the admin edits
+  // rather than overwrites, and asks for a reason for the change.
+  const pickExpenseDate = (date) => {
+    setExpenseDate(date);
+    setExpenseError("");
+    setExpenseReason("");
+    const recorded = ledgerData.ledger.find((row) => row.date === date && row.costsRecorded);
+    setExpenseRaw(recorded ? String(recorded.rawMaterials) : "");
+    setExpenseTransport(recorded ? String(recorded.transport) : "");
+    setExpenseNote(recorded ? recorded.note : "");
+  };
+  const editingRecordedDay = ledgerData.ledger.some((row) => row.date === expenseDate && row.costsRecorded);
+
   const handleAddExpense = async (e) => {
     e.preventDefault();
     if (!expenseDate) return;
     setIsSavingExpense(true);
+    setExpenseError("");
 
     const formData = new FormData();
     formData.set("date", expenseDate);
     formData.set("rawMaterials", expenseRaw || "0");
     formData.set("transport", expenseTransport || "0");
     formData.set("note", expenseNote || "");
+    formData.set("reason", expenseReason || "");
 
     const res = await addDailyExpenseAction(formData);
     setIsSavingExpense(false);
 
     if (res?.ok) {
-      showToast(`Daily costs for ${expenseDate} recorded in ledger!`);
-      setExpenseRaw("");
-      setExpenseTransport("");
-      setExpenseNote("");
+      showToast(res.edited ? `Costs for ${expenseDate} updated. The change and its reason are in the ledger.` : `Costs for ${expenseDate} saved.`);
+      setExpenseReason("");
       router.refresh();
     } else {
-      alert(res?.error || "Failed to save daily expense.");
+      setExpenseError(res?.error || "Failed to save daily expense.");
     }
   };
 
@@ -283,6 +299,9 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
           <Link href="/admin/staff" className="btn-primary" style={{ fontSize: "0.88rem", padding: "0.5rem 1rem" }}>
             Manage staff
+          </Link>
+          <Link href="/admin/team" className="btn-secondary" style={{ fontSize: "0.88rem", padding: "0.5rem 1rem" }}>
+            Team performance
           </Link>
           <Link href="/menu" className="btn-secondary" style={{ fontSize: "0.88rem", padding: "0.5rem 1rem" }}>
             Customer Menu
@@ -723,7 +742,7 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
                         )}
                       </div>
                       <div style={{ fontSize: "0.85rem", color: "var(--muted)", marginTop: "0.2rem" }}>
-                        Price: <strong>{dish.price} ETB</strong> | {dish.ordersCount} lifetime orders | Rating: {dish.rating} / 5
+                        Price: <strong>{dish.price} ETB</strong> | {dish.ordersCount || 0} orders | {dish.reviewsCount ? `Rating ${dish.rating} / 5 (${dish.reviewsCount} reviews)` : "No reviews yet"}
                       </div>
                     </div>
                   </div>
@@ -991,7 +1010,8 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
                   type="date"
                   required
                   value={expenseDate}
-                  onChange={(e) => setExpenseDate(e.target.value)}
+                  max={new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10)}
+                  onChange={(e) => pickExpenseDate(e.target.value)}
                 />
               </div>
 
@@ -1033,14 +1053,33 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
                 />
               </div>
 
+              {editingRecordedDay && (
+                <div className="field" style={{ margin: 0, gridColumn: "1 / -1" }}>
+                  <label>Reason for changing {expenseDate} *</label>
+                  <input
+                    type="text"
+                    required
+                    value={expenseReason}
+                    onChange={(e) => setExpenseReason(e.target.value)}
+                    placeholder="e.g. Forgot the fuel receipt, supplier invoice corrected"
+                  />
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={isSavingExpense}
                 className="btn-primary"
                 style={{ padding: "0.7rem 1.2rem", height: "42px" }}
               >
-                {isSavingExpense ? "Saving..." : "Save Daily Costs"}
+                {isSavingExpense ? "Saving..." : editingRecordedDay ? "Save changes" : "Save Daily Costs"}
               </button>
+              {expenseError && <p className="field-error" role="alert" style={{ gridColumn: "1 / -1", margin: 0 }}>{expenseError}</p>}
+              {editingRecordedDay && (
+                <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: "0.82rem", color: "var(--muted)" }}>
+                  Costs for this day are already recorded. The current values are loaded above; the old values and your reason are kept in the ledger.
+                </p>
+              )}
             </form>
           </div>
 
@@ -1070,26 +1109,50 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
                 <thead>
                   <tr style={{ borderBottom: "2px solid var(--border)", color: "var(--muted)" }}>
                     <th style={{ padding: "0.75rem" }}>Date</th>
+                    <th style={{ padding: "0.75rem" }}>Orders</th>
                     <th style={{ padding: "0.75rem" }}>Revenue</th>
                     <th style={{ padding: "0.75rem" }}>Raw Materials</th>
                     <th style={{ padding: "0.75rem" }}>Transport</th>
                     <th style={{ padding: "0.75rem" }}>Total Expenses</th>
                     <th style={{ padding: "0.75rem" }}>Net Profit</th>
                     <th style={{ padding: "0.75rem" }}>Margin</th>
+                    <th style={{ padding: "0.75rem" }}>Notes &amp; changes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(showAllHistory ? ledger : recent5Days).map((row) => (
                     <tr key={row.date} style={{ borderBottom: "1px solid var(--border)" }}>
                       <td style={{ padding: "0.75rem", fontWeight: "700" }}>{row.date}</td>
+                      <td style={{ padding: "0.75rem" }}>{row.ordersCount}</td>
                       <td style={{ padding: "0.75rem", fontWeight: "750", color: "var(--brand-dark)" }}>
                         {row.revenue.toLocaleString()} ETB
                       </td>
                       <td style={{ padding: "0.75rem", color: "#dc2626" }}>-{row.rawMaterials.toLocaleString()} ETB</td>
                       <td style={{ padding: "0.75rem", color: "#e67e22" }}>-{row.transport.toLocaleString()} ETB</td>
                       <td style={{ padding: "0.75rem", fontWeight: "650", color: "#dc2626" }}>-{row.totalExpenses.toLocaleString()} ETB</td>
-                      <td style={{ padding: "0.75rem", fontWeight: "800", color: "#16a34a" }}>+{row.netProfit.toLocaleString()} ETB</td>
+                      <td style={{ padding: "0.75rem", fontWeight: "800", color: row.netProfit < 0 ? "#dc2626" : "#16a34a" }}>
+                        {row.netProfit < 0 ? "-" : "+"}{Math.abs(row.netProfit).toLocaleString()} ETB
+                      </td>
                       <td style={{ padding: "0.75rem", fontWeight: "700" }}>{row.margin}%</td>
+                      <td style={{ padding: "0.75rem", fontSize: "0.82rem", color: "var(--muted)", minWidth: "220px" }}>
+                        {!row.costsRecorded && <span>No costs entered</span>}
+                        {row.note && <div>{row.note}</div>}
+                        {row.history.length > 0 && (
+                          <details className="ledger-history">
+                            <summary>Edited {row.history.length}x, last by {row.updatedBy || "admin"}</summary>
+                            <ul>
+                              {[...row.history].reverse().map((change, index) => (
+                                <li key={index}>
+                                  <strong>{new Date(change.replacedAt).toLocaleString()}</strong> by {change.replacedBy}: &quot;{change.reason}&quot;
+                                  <br />
+                                  Was raw {Number(change.rawMaterials).toLocaleString()} ETB, transport {Number(change.transport).toLocaleString()} ETB
+                                  {change.note ? ` (${change.note})` : ""}
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

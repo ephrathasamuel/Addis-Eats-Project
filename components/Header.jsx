@@ -81,11 +81,14 @@ export function Header() {
                 <Link href="/track" className={`nav-link ${isActive("/track") ? "nav-link--active" : ""}`}>
                   Live Map
                 </Link>
-                <Link href="/admin" className={`nav-link ${isActive("/admin") && !isActive("/admin/staff") ? "nav-link--active" : ""}`}>
+                <Link href="/admin" className={`nav-link ${isActive("/admin") && !isActive("/admin/staff") && !isActive("/admin/team") ? "nav-link--active" : ""}`}>
                   Admin
                 </Link>
                 <Link href="/admin/staff" className={`nav-link ${isActive("/admin/staff") ? "nav-link--active" : ""}`}>
                   Staff
+                </Link>
+                <Link href="/admin/team" className={`nav-link ${isActive("/admin/team") ? "nav-link--active" : ""}`}>
+                  Team
                 </Link>
               </>
             ) : isDelivery ? (
