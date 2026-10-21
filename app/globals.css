@@ -8,7 +8,7 @@
   --text: #1c1a26;
   --muted: #6f6b85;
   --danger: #d1435b;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI",
+  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI",
     Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -1438,7 +1438,8 @@ button:active:not(:disabled),
   position: relative;
   z-index: 2;
   padding: 3.5rem 3rem;
-  max-width: 650px;
+  /* Wide enough for the Fraunces headline to stay on two lines. */
+  max-width: 720px;
   color: #ffffff;
 }
 @media (max-width: 640px) {
@@ -3258,4 +3259,36 @@ button:active:not(:disabled),
 .profile-order-card__total strong {
   font-size: 1.15rem;
   color: var(--brand-dark);
+}
+
+/* Typography: Fraunces for headings and the logo, Plus Jakarta Sans for
+   everything else (set on :root above). */
+h1,
+h2,
+h3,
+.brand-name,
+.dish-title,
+.modal__title {
+  font-family: var(--font-display), Georgia, "Times New Roman", serif;
+  font-optical-sizing: auto;
+  letter-spacing: -0.01em;
+}
+h1 {
+  font-weight: 700;
+}
+/* Staff boards stay in the clean text font: they are read at a glance. */
+.board h2,
+.board h3,
+.board-side h2,
+.ticket__id,
+.stat__value {
+  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: -0.01em;
+}
+/* Form controls don't inherit fonts by default. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }

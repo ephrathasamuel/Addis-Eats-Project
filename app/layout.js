@@ -1,4 +1,5 @@
 import "./globals.css";
+import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Providers } from "@/components/Providers";
@@ -6,6 +7,11 @@ import { WelcomeNotice } from "@/components/WelcomeNotice";
 import { HideOnStaffSignIn } from "@/components/HideOnStaffSignIn";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { getSession } from "@/lib/session";
+
+// Fonts are downloaded at build time and served from this site (no requests
+// to Google from visitors). Plus Jakarta Sans for text, Fraunces for headings.
+const bodyFont = Plus_Jakarta_Sans({ subsets: ["latin"], display: "swap", variable: "--font-body" });
+const displayFont = Fraunces({ subsets: ["latin"], display: "swap", variable: "--font-display" });
 
 export const metadata = {
   title: "Addis Eats",
@@ -53,7 +59,7 @@ export default async function RootLayout({ children }) {
     // attribute at all (the server doesn't know the visitor's saved
     // preference), so without this, React correctly notices the mismatch
     // and warns about it even though it's expected and harmless.
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={`${bodyFont.variable} ${displayFont.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
