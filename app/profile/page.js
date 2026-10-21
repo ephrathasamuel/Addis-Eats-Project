@@ -136,9 +136,12 @@ function CustomerOrders({ userId }) {
                   <div style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "0.35rem" }}>
                     {new Date(order.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
                   </div>
-                  <div style={{ fontSize: "0.9rem", fontWeight: "500" }}>
-                    {order.items?.map((i) => `${i.name} (${i.qty})`).join(" · ") || "Dishes in order"}
-                  </div>
+                  {/* One dish per line */}
+                  <ul style={{ listStyle: "none", margin: 0, padding: 0, fontSize: "0.9rem", fontWeight: "500", lineHeight: 1.6 }}>
+                    {order.items?.length
+                      ? order.items.map((i, index) => <li key={`${i.id}-${index}`}>{i.name} ({i.qty})</li>)
+                      : <li>Dishes in order</li>}
+                  </ul>
                 </div>
                 {/* Total on the left, the button in the bottom-right corner */}
                 <div className="profile-order-card__footer">
