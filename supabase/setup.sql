@@ -1,5 +1,4 @@
--- Addis Eats: run this whole file once in Supabase > SQL Editor > New query > Run.
--- It is safe to run again. (Same content as the files in supabase/migrations.)
+
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
