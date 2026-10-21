@@ -36,23 +36,28 @@ function Totals({ kind, totals }) {
   );
 }
 
-export function StaffHistory({ history }) {
+export function StaffHistory({ history, showTotals = true }) {
   const { kind, totals, days } = history;
   if (days.length === 0) {
     return <p className="board-empty">Nothing yet. Your finished {kind === "kitchen" ? "orders" : "deliveries"} will show here.</p>;
   }
   return (
     <div>
-      <h2 className="history-heading">All time</h2>
-      <Totals kind={kind} totals={totals} />
-      <h2 className="history-heading">By day</h2>
+      {showTotals && (
+        <>
+          <h2 className="history-heading">All time</h2>
+          <Totals kind={kind} totals={totals} />
+          <h2 className="history-heading">By day</h2>
+        </>
+      )}
       <div className="history-days">
         {days.map((day, index) => (
           <details key={day.day} className="card-panel history-day" open={index === 0}>
             <summary>
               <strong>{formatDay(day.day)}</strong>
               <span className="text-muted">
-                {day.summary.orders} {kind === "kitchen" ? "orders" : "deliveries"}
+                {day.summary.orders}{" "}
+                {kind === "kitchen" ? (day.summary.orders === 1 ? "order" : "orders") : day.summary.orders === 1 ? "delivery" : "deliveries"}
                 {kind === "kitchen" ? ` · ${day.summary.items} dishes` : ` · ${day.summary.fees.toLocaleString()} ETB`}
                 {day.summary.avgMinutes ? ` · avg ${day.summary.avgMinutes} min` : ""}
               </span>

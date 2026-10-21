@@ -3594,3 +3594,163 @@ textarea {
     flex-wrap: wrap;
   }
 }
+
+/* Team: person cards and the person page */
+.team-section {
+  margin-bottom: 0.5rem;
+}
+.person-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+.person-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.1rem 1.2rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  box-shadow: 0 2px 8px var(--shadow-color);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.person-card:hover {
+  text-decoration: none;
+  border-color: var(--brand);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px var(--shadow-color);
+}
+.person-card__top {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.person-card__who {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.person-card__who strong {
+  font-size: 1.05rem;
+}
+.person-card__who span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.person-card__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+.person-card__stats > div {
+  display: flex;
+  flex-direction: column;
+}
+.person-card__value {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--brand-dark);
+}
+.person-card__label {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.person-card__more {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--brand-dark);
+}
+.team-log {
+  margin-top: 1.5rem;
+}
+.team-log__day h3 {
+  margin: 0.75rem 0 0.4rem;
+  font-size: 0.98rem;
+}
+.person-profile {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.person-profile__info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 220px;
+}
+.person-profile__info h1 {
+  margin: 0;
+}
+.person-profile__contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.period-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.period-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.period-card__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.period-card__value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--brand-dark);
+}
+.period-card__meta {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+@media (max-width: 900px) {
+  .period-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  /* Period switch: one row that scrolls sideways */
+  .segmented {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .segmented::-webkit-scrollbar {
+    display: none;
+  }
+  .segmented__link,
+  .segmented button {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
+@media (max-width: 420px) {
+  /* Keep "Hi, name" from being cut off next to the theme button */
+  .auth-role-badge {
+    display: none;
+  }
+}

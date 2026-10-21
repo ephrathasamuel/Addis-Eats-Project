@@ -40,6 +40,7 @@ export function AuthStatus() {
       <span>Hi, {firstName}</span>
       {badge && (
         <span
+          className="auth-role-badge"
           style={{
             fontSize: "0.68rem",
             background: badge.background,
