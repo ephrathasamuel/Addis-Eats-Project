@@ -999,6 +999,8 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
                 <label>Raw Materials (ETB) *</label>
                 <input
                   type="number"
+                  inputMode="decimal"
+                  className="no-spinner"
                   min="0"
                   required
                   value={expenseRaw}
@@ -1011,6 +1013,8 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
                 <label>Transport &amp; Fuel (ETB) *</label>
                 <input
                   type="number"
+                  inputMode="decimal"
+                  className="no-spinner"
                   min="0"
                   required
                   value={expenseTransport}

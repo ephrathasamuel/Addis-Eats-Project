@@ -3267,6 +3267,7 @@ h1,
 h2,
 h3,
 .brand-name,
+.footer-brand,
 .dish-title,
 .modal__title {
   font-family: var(--font-display), Georgia, "Times New Roman", serif;
@@ -3291,4 +3292,113 @@ input,
 select,
 textarea {
   font-family: inherit;
+}
+
+/* Footer on phones: compact, centred brand, two short link columns side by
+   side, and no links that duplicate the bottom tab bar. */
+@media (max-width: 768px) {
+  .site-footer {
+    margin-top: 2.5rem;
+  }
+  .site-footer__inner {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "brand brand"
+      "explore legal"
+      "visit visit";
+    gap: 1.25rem 1rem;
+    padding: 1.75rem 1.25rem 1.25rem;
+  }
+  .footer-col--brand {
+    grid-area: brand;
+    text-align: center;
+  }
+  .footer-col--explore { grid-area: explore; }
+  .footer-col--legal { grid-area: legal; }
+  .footer-col--visit {
+    grid-area: visit;
+    text-align: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .footer-col--visit .footer-col__title {
+    display: none;
+  }
+  /* Contact as two tap-friendly buttons side by side */
+  .footer-contact {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+  }
+  .footer-contact__item {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 56px;
+    padding: 0.55rem 0.5rem;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    font-size: 0.78rem;
+    color: var(--muted) !important;
+    overflow-wrap: anywhere;
+  }
+  .footer-contact__label {
+    display: block;
+    color: var(--brand-dark);
+    font-weight: 700;
+    font-size: 0.92rem;
+  }
+  .footer-contact__item:first-child .footer-contact__label::before { content: "📞 "; }
+  .footer-contact__item:nth-child(2) .footer-contact__label::before { content: "✉️ "; }
+  .footer-address::before {
+    content: "📍 ";
+  }
+  .footer-brand {
+    font-size: 1.35rem;
+  }
+  .footer-col p {
+    margin-bottom: 0.4rem;
+  }
+  .footer-link--tabbar {
+    display: none;
+  }
+  /* Room underneath so the scroll-to-top button never covers the text. */
+  .site-footer__bottom {
+    justify-content: center;
+    text-align: center;
+    padding: 1rem 1.25rem 3.5rem;
+  }
+}
+
+/* Contact list on wider screens: plain lines */
+.footer-contact__item {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.55rem;
+  font-size: 0.9rem;
+}
+.footer-contact__label {
+  display: none;
+}
+@media (max-width: 768px) {
+  .footer-contact__item {
+    margin-bottom: 0;
+  }
+  /* Comes after the desktop rule above, so phones show the button labels. */
+  .footer-contact__label {
+    display: block;
+  }
+}
+
+/* Number boxes without the up/down arrows (admin expense amounts) */
+.no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
