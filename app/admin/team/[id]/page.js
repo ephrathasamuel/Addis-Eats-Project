@@ -28,7 +28,7 @@ export default async function PersonPage({ params, searchParams }) {
   return (
     <div className="page-wide">
       <div className="page-heading">
-        <Link href={`/admin/team?period=${backPeriod}`} className="btn-ghost">← Team</Link>
+        <Link href={`/admin/team?team=${kitchen ? "kitchen" : "delivery"}&period=${backPeriod}`} className="btn-ghost">← {kitchen ? "Kitchen team" : "Delivery team"}</Link>
       </div>
 
       <section className="card-panel person-profile">

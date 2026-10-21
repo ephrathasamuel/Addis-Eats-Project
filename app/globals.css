@@ -3754,3 +3754,208 @@ textarea {
     display: none;
   }
 }
+
+/* Team page: team tabs, one panel per team, readable daily log */
+.team-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.team-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+.team-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: none;
+  min-height: 44px;
+}
+.team-tab:hover {
+  text-decoration: none;
+  border-color: var(--brand);
+}
+.team-tab.is-active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.team-tab.is-active .count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+.team-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.team-panel__title {
+  margin: 0;
+}
+.team-panel__heading {
+  margin: 1rem 0 0;
+  font-size: 1.1rem;
+}
+.team-panel__hint {
+  margin: -0.4rem 0 0;
+  font-size: 0.88rem;
+}
+.team-totals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.team-totals__item {
+  display: flex;
+  flex-direction: column;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: var(--brand-light);
+}
+.team-totals__value {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--brand-dark);
+}
+.team-totals__label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.log-days {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.log-day {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card-bg);
+  overflow: hidden;
+}
+.log-day > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+.log-day > summary::-webkit-details-marker {
+  display: none;
+}
+.log-day > summary::before {
+  content: "▸";
+  color: var(--muted);
+  margin-right: -0.5rem;
+  transition: transform 0.15s ease;
+}
+.log-day[open] > summary::before {
+  transform: rotate(90deg);
+}
+.log-day[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+.log-day__date {
+  font-weight: 750;
+  flex: 1;
+}
+.log-day__headline {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.log-day__people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.75rem 1rem 0.25rem;
+}
+.log-chip {
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: var(--brand-light);
+  color: var(--text);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+.log-chip:hover {
+  text-decoration: none;
+  outline: 1px solid var(--brand);
+}
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.log-table th,
+.log-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--border);
+}
+.log-table th {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.log-table__dish {
+  display: block;
+}
+@media (max-width: 900px) {
+  .team-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .team-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .team-tab {
+    flex: 1;
+    justify-content: center;
+    padding: 0.55rem 0.6rem;
+    font-size: 0.95rem;
+    white-space: nowrap;
+  }
+  /* Each order becomes a small labelled block instead of a wide row */
+  .log-table thead {
+    display: none;
+  }
+  .log-table,
+  .log-table tbody,
+  .log-table tr,
+  .log-table td {
+    display: block;
+  }
+  .log-table tr {
+    padding: 0.6rem 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .log-table td {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.15rem 0;
+    border: none;
+  }
+  .log-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+}
