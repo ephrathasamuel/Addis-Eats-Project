@@ -5,7 +5,7 @@ import { useSession } from "@/components/Providers";
 
 const ROLE_BADGES = {
   staff: { label: "Kitchen", background: "#2e7d32" },
-  admin: { label: "Admin", background: "var(--brand)" },
+  admin: { label: "Admin", background: "var(--brand)", color: "var(--on-brand)" },
   delivery: { label: "Courier", background: "#2563eb" },
 };
 
@@ -44,7 +44,7 @@ export function AuthStatus() {
           style={{
             fontSize: "0.68rem",
             background: badge.background,
-            color: "white",
+            color: badge.color || "white",
             padding: "0.1rem 0.45rem",
             borderRadius: "999px",
             fontWeight: "750",

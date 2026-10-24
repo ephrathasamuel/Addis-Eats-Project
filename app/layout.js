@@ -65,8 +65,9 @@ export default async function RootLayout({ children }) {
       </head>
       <body>
         <Providers initialUser={initialUser}>
+          <a href="#main" className="skip-link">Skip to content</a>
           <Header />
-          <main>
+          <main id="main">
             <WelcomeNotice />
             {children}
           </main>

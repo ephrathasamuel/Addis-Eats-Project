@@ -28,7 +28,7 @@ export async function DELETE(request) {
   const user = await getSession();
   if (!user) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   const body = await request.json().catch(() => null);
-  removeSubscription(body?.endpoint);
+  removeSubscription(body?.endpoint, user.id);
   await flushData();
   return NextResponse.json({ ok: true });
 }

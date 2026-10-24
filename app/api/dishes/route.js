@@ -6,7 +6,8 @@ export async function GET(request) {
   const q = searchParams.get("q");
   const category = searchParams.get("category");
   const page = searchParams.get("page");
-  const limit = parseInt(searchParams.get("limit") || "4", 10);
+  const requestedLimit = parseInt(searchParams.get("limit") || "4", 10);
+  const limit = Number.isFinite(requestedLimit) ? Math.min(50, Math.max(1, requestedLimit)) : 4;
 
   let dishes = await getDishes(category);
 

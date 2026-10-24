@@ -285,7 +285,7 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
                 padding: "0.2rem 0.65rem",
                 borderRadius: "999px",
                 backgroundColor: "var(--brand)",
-                color: "white",
+                color: "var(--on-brand)",
               }}
             >
               Administrator
@@ -836,7 +836,7 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
                           borderRadius: "8px",
                           border: "1px solid var(--brand)",
                           backgroundColor: "var(--brand)",
-                          color: "white",
+                          color: "var(--on-brand)",
                           cursor: isBusy ? "not-allowed" : "pointer",
                           display: "inline-flex",
                           alignItems: "center",

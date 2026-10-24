@@ -59,7 +59,7 @@ export default async function TrackIndexPage({ searchParams }) {
                 fontSize: "0.85rem",
                 whiteSpace: "nowrap",
                 backgroundColor: String(o.id) === String(selectedOrder.id) ? "var(--brand)" : "transparent",
-                color: String(o.id) === String(selectedOrder.id) ? "#fff" : "var(--text)",
+                color: String(o.id) === String(selectedOrder.id) ? "var(--on-brand)" : "var(--text)",
                 borderColor: String(o.id) === String(selectedOrder.id) ? "var(--brand)" : "var(--border)",
               }}
             >

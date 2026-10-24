@@ -31,7 +31,7 @@ export default async function AdminFinancesPage() {
                 padding: "0.2rem 0.65rem",
                 borderRadius: "999px",
                 backgroundColor: "var(--brand)",
-                color: "white",
+                color: "var(--on-brand)",
               }}
             >
               Full Ledger History
