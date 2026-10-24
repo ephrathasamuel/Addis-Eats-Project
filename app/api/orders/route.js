@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizeEthiopianPhone, parseDeliveryCoordinates, validateOrder } from "@/lib/validation";
-import { createOrder, priceOrderItems, toOrderClientData } from "@/lib/orders";
+import { createOrder, orderLimitError, priceOrderItems, toOrderClientData } from "@/lib/orders";
+import { getOrderingStatus } from "@/lib/settings";
 import { getSession } from "@/lib/session";
 import { quoteDelivery } from "@/lib/pricing";
 import { estimateDrive } from "@/lib/routing";
@@ -16,6 +17,14 @@ export async function POST(request) {
   }
   if (user.role !== "customer") {
     return NextResponse.json({ error: "Only customer accounts can place orders." }, { status: 403 });
+  }
+  const ordering = getOrderingStatus();
+  if (!ordering.open) {
+    return NextResponse.json({ error: ordering.message }, { status: 503 });
+  }
+  const limitError = orderLimitError(user.id);
+  if (limitError) {
+    return NextResponse.json({ error: limitError }, { status: 429 });
   }
 
   let body;

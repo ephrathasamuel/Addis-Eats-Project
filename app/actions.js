@@ -12,7 +12,7 @@ import {
 } from "@/lib/validation";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { findAuthUserByEmail } from "@/lib/supabase/admin";
+import { deleteAuthUser, findAuthUserByEmail } from "@/lib/supabase/admin";
 import {
   createOrder,
   priceOrderItems,
@@ -32,6 +32,12 @@ import {
   releaseDelivery,
   completeDelivery,
   adminEditOrderRecord,
+  PROBLEM_TYPES,
+  anonymizeCustomerOrders,
+  hasActiveOrder,
+  orderLimitError,
+  reportOrderProblem,
+  resolveOrderProblem,
 } from "@/lib/orders";
 import { getSession, createSession, clearSession, toSessionUser } from "@/lib/session";
 import {
@@ -60,7 +66,8 @@ import { resolveImageInput } from "@/lib/media";
 import { saveDailyExpense } from "@/lib/finances";
 import { describeDrive, estimateDrive } from "@/lib/routing";
 import { quoteDelivery } from "@/lib/pricing";
-import { notifyRole, notifyUser } from "@/lib/push";
+import { notifyRole, notifyUser, removeSubscriptionsFor } from "@/lib/push";
+import { getOrderingStatus, saveSettings } from "@/lib/settings";
 
 // Tells the customer who placed an order about a status change.
 function notifyCustomer(orderId, title, body) {
@@ -147,6 +154,10 @@ async function placeOrderImpl(formData) {
   if (session.role !== "customer") {
     return { ok: false, error: "Orders can only be placed from a customer account." };
   }
+  const ordering = getOrderingStatus();
+  if (!ordering.open) return { ok: false, error: ordering.message };
+  const limitError = orderLimitError(session.id);
+  if (limitError) return { ok: false, error: limitError };
 
   const name = String(formData.get("name") || "").trim();
   const phone = String(formData.get("phone") || "");
@@ -965,6 +976,64 @@ async function removeStaffActionImpl(staffId) {
 // Every action reads the latest shared data first and finishes saving its
 // changes before it returns or redirects, so the next request (possibly on
 // another server instance) sees them.
+// ---------------------------------------------------------------------------
+// Ordering hours, problem reports, account deletion
+// ---------------------------------------------------------------------------
+
+async function saveOrderingSettingsActionImpl(changes = {}) {
+  const user = await requireRole("admin");
+  if (!user) return { ok: false, error: "Only the admin can change this." };
+  const allowed = {};
+  for (const key of ["paused", "pauseMessage", "hours"]) if (key in (changes || {})) allowed[key] = changes[key];
+  const result = saveSettings(allowed);
+  if (!result.ok) return result;
+  revalidatePath("/checkout");
+  return { ok: true, settings: result.settings, status: getOrderingStatus() };
+}
+
+async function reportOrderProblemActionImpl(orderId, type, note) {
+  const user = await requireRole("customer");
+  if (!user) return { ok: false, error: "Sign in to report a problem." };
+  const result = reportOrderProblem(String(orderId), user.id, { type: String(type || ""), note: String(note || "") });
+  if (result.ok) {
+    notifyRole("admin", {
+      title: `Problem reported on #${orderId}`,
+      body: PROBLEM_TYPES[type] || "A customer reported a problem.",
+      url: "/admin",
+      tag: `problem-${orderId}`,
+    });
+  }
+  return result;
+}
+
+async function resolveOrderProblemActionImpl(orderId) {
+  const user = await requireRole("admin");
+  if (!user) return { ok: false, error: "Only the admin can resolve reports." };
+  return resolveOrderProblem(String(orderId), user.name);
+}
+
+async function deleteMyAccountActionImpl(confirmEmail) {
+  const user = await getSession();
+  if (!user || user.role !== "customer") return { ok: false, error: "Only customer accounts can be deleted here." };
+  if (String(confirmEmail || "").trim().toLowerCase() !== String(user.email || "").toLowerCase()) {
+    return { ok: false, error: "The email you typed doesn't match your account." };
+  }
+  if (hasActiveOrder(user.id)) {
+    return { ok: false, error: "You have an order that isn't delivered yet. You can delete your account once it has arrived." };
+  }
+  if (user.provider === "supabase") {
+    const deleted = await deleteAuthUser(user.id);
+    if (!deleted) return { ok: false, error: "We couldn't delete your account right now. Please try again or contact us." };
+  } else {
+    const removed = removeAccount(user.id);
+    if (!removed.ok) return { ok: false, error: removed.error };
+  }
+  anonymizeCustomerOrders(user.id);
+  removeSubscriptionsFor(user.id);
+  await clearSession();
+  return { ok: true };
+}
+
 async function withData(run) {
   await syncData();
   try {
@@ -1112,4 +1181,20 @@ export async function resetStaffPinAction(...args) {
 
 export async function removeStaffAction(...args) {
   return withData(() => removeStaffActionImpl(...args));
+}
+
+export async function saveOrderingSettingsAction(...args) {
+  return withData(() => saveOrderingSettingsActionImpl(...args));
+}
+
+export async function reportOrderProblemAction(...args) {
+  return withData(() => reportOrderProblemActionImpl(...args));
+}
+
+export async function resolveOrderProblemAction(...args) {
+  return withData(() => resolveOrderProblemActionImpl(...args));
+}
+
+export async function deleteMyAccountAction(...args) {
+  return withData(() => deleteMyAccountActionImpl(...args));
 }

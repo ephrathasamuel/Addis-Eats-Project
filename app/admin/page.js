@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { getAllDishesAdmin } from "@/lib/dishes";
-import { getAllOrders, getDishPopularityByLocation, toOrderClientData } from "@/lib/orders";
+import { getAllOrders, getDishPopularityByLocation, getOrderProblems, toOrderClientData } from "@/lib/orders";
 import { getFinancialLedger } from "@/lib/finances";
 import { AdminDashboard } from "./AdminDashboard";
+import { OrderingControls } from "./OrderingControls";
+import { ProblemReports } from "./ProblemReports";
+import { getSettings, getOrderingStatus } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +28,10 @@ export default async function AdminPage() {
 
   return (
     <div className="page-wide">
+      <div className="admin-extras">
+        <OrderingControls initial={getSettings()} status={getOrderingStatus()} />
+        <ProblemReports initial={getOrderProblems()} />
+      </div>
       <AdminDashboard
         initialDishes={getAllDishesAdmin()}
         initialOrders={orders.map(toOrderClientData)}

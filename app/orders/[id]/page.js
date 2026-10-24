@@ -1,7 +1,8 @@
-import { getOrderForUser, toOrderClientData } from "@/lib/orders";
+import { PROBLEM_TYPES, getOrderForUser, toOrderClientData } from "@/lib/orders";
 import { getSession } from "@/lib/session";
 import { notFound, redirect } from "next/navigation";
 import { OrderStatus } from "./OrderStatus";
+import { ReportProblem } from "./ReportProblem";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,11 @@ export default async function OrderPage({ params, searchParams }) {
         initial={toOrderClientData(initial)}
         back={fromProfile ? { href: "/profile", label: "Back to profile" } : { href: "/orders", label: "Back to order history" }}
       />
+      {user.role === "customer" && initial.status === "delivered" && (
+        <div className="order-help">
+          <ReportProblem orderId={String(initial.id)} types={PROBLEM_TYPES} existing={initial.problem || null} />
+        </div>
+      )}
     </div>
   );
 }

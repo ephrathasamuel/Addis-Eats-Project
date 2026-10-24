@@ -4,6 +4,7 @@ import { getOrdersFor, getStaffStats, startOfToday } from "@/lib/orders";
 import { signOut } from "@/app/actions";
 import { Avatar } from "@/components/Modal";
 import { ChangePasswordForm, ChangePinForm, StaffProfileForm } from "./ProfileSettings";
+import { DeleteAccount } from "./DeleteAccount";
 
 export const dynamic = "force-dynamic";
 
@@ -98,6 +99,7 @@ export default async function ProfilePage() {
       <ChangePasswordForm hasPassword={hasPassword} canEmailReset={user.provider === "supabase"} />
 
       {user.role === "customer" && <CustomerOrders userId={user.id} />}
+      {user.role === "customer" && <DeleteAccount email={user.email} />}
     </div>
   );
 }

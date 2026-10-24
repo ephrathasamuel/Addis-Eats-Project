@@ -5,6 +5,7 @@ import { getSession } from "@/lib/session";
 import { getKitchenEstimate, priceOrderItems } from "@/lib/orders";
 import { getPricing, quoteAllAreas } from "@/lib/pricing";
 import OrderForm from "./OrderForm";
+import { getOrderingStatus } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export default async function CheckoutPage({ searchParams }) {
   const subtotal = priced.ok ? priced.foodTotal : 0;
   const itemsRaw = JSON.stringify(items.map(({ id, qty }) => ({ id, qty })));
   const fieldErrors = priced.ok ? {} : { items: priced.error };
+  const ordering = getOrderingStatus();
 
   return (
     <div className="checkout-layout">
@@ -49,6 +51,13 @@ export default async function CheckoutPage({ searchParams }) {
           </p>
         </div>
       </div>
+
+      {!ordering.open && (
+        <div className="ordering-closed-notice" role="status">
+          <strong>{ordering.reason === "hours" ? "We're closed" : "Orders are paused"}</strong>
+          <span>{ordering.message}</span>
+        </div>
+      )}
 
       {fieldErrors.items ? (
         <div className="checkout-empty-state">
