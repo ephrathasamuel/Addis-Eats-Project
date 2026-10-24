@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BUSINESS } from "@/lib/business";
 
 const MAP_URL = "https://www.google.com/maps/search/?api=1&query=Bole+Road%2C+Addis+Ababa%2C+Ethiopia";
 
@@ -40,18 +41,18 @@ export function Footer() {
         <div className="footer-col footer-col--visit">
           <p className="footer-col__title">Contact us</p>
           <div className="footer-contact">
-            <a href="tel:+251110000000" className="footer-contact__item">
+            <a href={BUSINESS.phoneHref} className="footer-contact__item">
               <span className="footer-contact__label"><Icon name="phone" /> Call us</span>
-              <span>+251 11 000 0000</span>
+              <span>{BUSINESS.phone}</span>
             </a>
-            <a href="mailto:hello@addiseats.et" className="footer-contact__item">
+            <a href={`mailto:${BUSINESS.email}`} className="footer-contact__item">
               <span className="footer-contact__label"><Icon name="mail" /> Email us</span>
-              <span>hello@addiseats.et</span>
+              <span>{BUSINESS.email}</span>
             </a>
           </div>
           <p>
             <a href={MAP_URL} target="_blank" rel="noreferrer" className="footer-address">
-              <Icon name="location" /> Bole Road, Addis Ababa, Ethiopia
+              <Icon name="location" /> {BUSINESS.address}
             </a>
           </p>
         </div>

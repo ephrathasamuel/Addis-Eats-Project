@@ -45,7 +45,7 @@ export default async function CheckoutPage({ searchParams }) {
         <div>
           <h1 className="checkout-title">Order Checkout</h1>
           <p className="checkout-subtitle">
-            Review your selected dishes | Enter delivery address | Pay via TeleBirr or Cash
+            Review your selected dishes | Enter delivery address | Pay cash on delivery
           </p>
         </div>
       </div>
@@ -158,13 +158,13 @@ export default async function CheckoutPage({ searchParams }) {
             <OrderForm itemsRaw={itemsRaw} foodSubtotal={subtotal} initialName={user.name || ""} kitchenEstimate={items.length ? getKitchenEstimate(items) : null} areaFees={items.length ? await quoteAllAreas() : {}} pricing={getPricing()} />
 
             <div className="payment-options-note">
-              <h4>Accepted Payment Methods</h4>
+              <h4>Payment</h4>
               <p>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: "inline-block", verticalAlign: "middle", marginRight: "0.4rem" }}>
                   <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
                   <line x1="12" y1="18" x2="12.01" y2="18" />
                 </svg>
-                TeleBirr | CBE Birr | Cash on Delivery (COD)
+                Cash on delivery: pay the courier when your order arrives.
               </p>
             </div>
           </section>

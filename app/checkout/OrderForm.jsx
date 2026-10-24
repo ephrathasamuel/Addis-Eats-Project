@@ -133,7 +133,7 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
       </div>
 
       <div className="field">
-        <label htmlFor="phone">Phone (TeleBirr / Mobile)</label>
+        <label htmlFor="phone">Phone number</label>
         <input
           id="phone"
           name="phone"

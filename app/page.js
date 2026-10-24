@@ -64,7 +64,7 @@ export default async function HomePage() {
           </h1>
 
           <p className="hero-banner__desc">
-            Slow-cooked clay-pot Doro Wat, sizzling Shekla Tibs, wood-fired pizzas, and gourmet burgers. Delivered steaming hot to your doorstep in 35 to 45 minutes.
+            Slow-cooked clay-pot Doro Wat, sizzling Shekla Tibs, wood-fired pizzas, and gourmet burgers. Delivered hot to your door, with a live time estimate before you order.
           </p>
 
           <div className="hero-banner__actions">
@@ -122,8 +122,8 @@ export default async function HomePage() {
             </svg>
           </span>
           <div>
-            <strong>Easy Digital Payment</strong>
-            <p>Instant TeleBirr | CBE Birr | Cash on Delivery</p>
+            <strong>Cash on Delivery</strong>
+            <p>Pay the courier when your food arrives</p>
           </div>
         </div>
       </section>

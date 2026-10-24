@@ -929,6 +929,18 @@ main {
   color: var(--text);
   line-height: 1.7;
 }
+.legal-page h2 {
+  margin: 1.75rem 0 0.5rem;
+  font-size: 1.2rem;
+}
+.legal-page ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  line-height: 1.7;
+}
+.legal-page li + li {
+  margin-top: 0.35rem;
+}
 
 /* ---------- Profile page ---------- */
 .profile-page {
