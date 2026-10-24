@@ -83,9 +83,23 @@ export function DeliveryBoard({ initialOrders, user }) {
     runAction(orderId, { courierId: null, courierName: null, courierAcceptedAt: null }, releaseDeliveryAction, `Order #${orderId} is back in the pool.`);
   };
 
-  const complete = (orderId) => {
-    if (!confirm(`Confirm order #${orderId} was handed to the customer?`)) return;
-    runAction(orderId, { status: "delivered", deliveredAt: new Date().toISOString() }, completeDeliveryAction, `Order #${orderId} delivered. Nice work!`);
+  const complete = (orderId, code) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (order?.needsDeliveryCode) {
+      // The code itself confirms the hand-over, so no extra "are you sure?".
+      if (!/^\d{4}$/.test(code || "")) {
+        setToast({ tone: "error", message: "Enter the customer's 4-digit delivery code." });
+        return;
+      }
+    } else if (!confirm(`Confirm order #${orderId} was handed to the customer?`)) {
+      return;
+    }
+    runAction(
+      orderId,
+      { status: "delivered", deliveredAt: new Date().toISOString() },
+      (id) => completeDeliveryAction(id, code || ""),
+      `Order #${orderId} delivered. Nice work!`
+    );
   };
 
   const activeOrderIds = active.filter((o) => o.courierId === user.id && o.status === "on-the-way").map((o) => o.id).join(",");
@@ -232,7 +246,7 @@ export function DeliveryBoard({ initialOrders, user }) {
               now={now}
               isAdmin={isAdmin}
               busy={busyId === order.id}
-              onComplete={() => complete(order.id)}
+              onComplete={(code) => complete(order.id, code)}
               onStart={() => startJourney(order.id)}
               onHandBack={() => handBack(order.id)}
             />
@@ -273,6 +287,7 @@ function Stat({ label, value, tone }) {
 const HAND_BACK_WINDOW_MS = 5 * 60 * 1000;
 
 function ActiveDelivery({ order, now, isAdmin, busy, onComplete, onStart, onHandBack }) {
+  const [code, setCode] = useState("");
   const pin = order.deliveryCoordinates;
   // Google Maps navigation shows live traffic and offers faster alternative routes.
   const directions = pin
@@ -314,7 +329,14 @@ function ActiveDelivery({ order, now, isAdmin, busy, onComplete, onStart, onHand
       </div>
       <p className="ticket__meta">{order.items.map((i) => `${i.qty}× ${i.name}`).join(", ")}</p>
       <p className="ticket__meta">
-        Collect <strong>{order.total} ETB</strong> · your fee <strong className="text-green">+{order.deliveryFee} ETB</strong>
+        {order.paidOnline || order.payment?.status === "paid" ? (
+          <strong className="paid-online">Paid online: nothing to collect</strong>
+        ) : (
+          <>
+            Collect <strong>{order.total} ETB</strong>
+          </>
+        )}{" "}
+        · your fee <strong className="text-green">+{order.deliveryFee} ETB</strong>
         {order.driveEstimate && <> · about {order.driveEstimate.minutes} min ({order.driveEstimate.km} km)</>}
       </p>
       <div className="ticket__actions">
@@ -338,8 +360,32 @@ function ActiveDelivery({ order, now, isAdmin, busy, onComplete, onStart, onHand
             )}
           </>
         )}
-        {!isAdmin && started && (
-          <button type="button" className="btn-success" disabled={busy} onClick={onComplete}>
+        {!isAdmin && started && order.needsDeliveryCode && (
+          <form
+            className="delivery-code"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onComplete(code);
+            }}
+          >
+            <label htmlFor={`code-${order.id}`}>Customer&apos;s code</label>
+            <input
+              id={`code-${order.id}`}
+              inputMode="numeric"
+              autoComplete="off"
+              pattern="[0-9]{4}"
+              maxLength={4}
+              placeholder="0000"
+              value={code}
+              onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 4))}
+            />
+            <button type="submit" className="btn-success" disabled={busy || code.length !== 4}>
+              {busy ? "Saving…" : "Mark delivered"}
+            </button>
+          </form>
+        )}
+        {!isAdmin && started && !order.needsDeliveryCode && (
+          <button type="button" className="btn-success" disabled={busy} onClick={() => onComplete("")}>
             {busy ? "Saving…" : "Mark delivered"}
           </button>
         )}

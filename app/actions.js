@@ -35,6 +35,11 @@ import {
   PROBLEM_TYPES,
   anonymizeCustomerOrders,
   hasActiveOrder,
+  setCourierRating,
+  addPaymentReference,
+  discardUnstartedOrder,
+  reserveOrderNumber,
+  switchOrderToCash,
   orderLimitError,
   reportOrderProblem,
   resolveOrderProblem,
@@ -62,12 +67,14 @@ import {
   updateDish,
   DISH_CATEGORIES,
 } from "@/lib/dishes";
-import { resolveImageInput } from "@/lib/media";
+import { resolveImageInputAsync } from "@/lib/media";
 import { saveDailyExpense } from "@/lib/finances";
 import { describeDrive, estimateDrive } from "@/lib/routing";
 import { quoteDelivery } from "@/lib/pricing";
 import { notifyRole, notifyUser, removeSubscriptionsFor } from "@/lib/push";
 import { getOrderingStatus, saveSettings } from "@/lib/settings";
+import { isOnlinePaymentEnabled, newPaymentReference, startPayment } from "@/lib/payments";
+import { confirmOrderPayment, notifyKitchenOfOrder } from "@/lib/order-payment";
 
 // Tells the customer who placed an order about a status change.
 function notifyCustomer(orderId, title, body) {
@@ -196,7 +203,9 @@ async function placeOrderImpl(formData) {
 
   const driveEstimate = deliveryCoordinates ? await estimateDrive(deliveryCoordinates) : null;
   const quote = await quoteDelivery({ location: finalLocation, pinEstimate: driveEstimate });
+  const payOnline = formData.get("paymentMethod") === "online" && isOnlinePaymentEnabled();
   const order = createOrder({
+    id: await reserveOrderNumber(),
     userId: session.id,
     name,
     phone: normalizeEthiopianPhone(phone),
@@ -207,15 +216,60 @@ async function placeOrderImpl(formData) {
     deliveryCoordinates,
     driveEstimate,
     quote,
+    payOnline,
   });
 
-  notifyRole("staff", {
-    title: `New order #${order.id}`,
-    body: order.items.map((item) => `${item.qty}× ${item.name}`).join(", "),
-    url: "/kitchen",
-    tag: "kitchen-new",
-  });
+  if (payOnline) {
+    const started = await beginOnlinePayment(order, session.email);
+    if (!started.ok) {
+      discardUnstartedOrder(order.id);
+      return { ok: false, error: `${started.error} Choose cash on delivery, or try again in a moment.` };
+    }
+    // The browser goes to Chapa; the kitchen hears about it once it's paid.
+    return { ok: true, payUrl: started.checkoutUrl, orderId: order.id };
+  }
+
+  notifyKitchenOfOrder(order);
   redirect(`/checkout/confirmation?order=${order.id}`);
+}
+
+
+// ---------------------------------------------------------------------------
+// Online payment
+// ---------------------------------------------------------------------------
+
+async function beginOnlinePayment(order, email) {
+  const origin = await getOrigin();
+  const reference = newPaymentReference(order.id);
+  addPaymentReference(order.id, reference);
+  return startPayment({
+    order,
+    reference,
+    email,
+    returnUrl: `${origin}/checkout/payment?order=${order.id}`,
+    callbackUrl: `${origin}/api/payments/chapa`,
+  });
+}
+
+async function retryOrderPaymentActionImpl(orderId) {
+  const user = await requireRole("customer");
+  const order = user ? getOrderForUser(String(orderId), user.id, "customer") : null;
+  if (!order) return { ok: false, error: "Order not found." };
+  if (order.status !== "awaiting-payment") return { ok: true, done: true };
+  if ((await confirmOrderPayment(order)).paid) return { ok: true, done: true };
+  const started = await beginOnlinePayment(order, user.email);
+  return started.ok ? { ok: true, payUrl: started.checkoutUrl } : { ok: false, error: `${started.error} You can pay cash on delivery instead.` };
+}
+
+async function payCashInsteadActionImpl(orderId) {
+  const user = await requireRole("customer");
+  if (!user) return { ok: false, error: "Sign in first." };
+  const order = getOrderForUser(String(orderId), user.id, "customer");
+  // If the online payment went through after all, keep it.
+  if (order && (await confirmOrderPayment(order)).paid) return { ok: true };
+  const result = switchOrderToCash(String(orderId), user.id);
+  if (result.ok && order) notifyKitchenOfOrder(order);
+  return result;
 }
 
 /** Driving estimate for the checkout once the customer attaches their location. */
@@ -236,8 +290,13 @@ async function cancelOrderImpl(orderId) {
   if (user.role !== "customer") {
     return { ok: false, status: 403, error: "Only the customer who placed the order can cancel it." };
   }
-  if (!getOrderForUser(orderId, user.id, user.role)) {
+  const existing = getOrderForUser(orderId, user.id, user.role);
+  if (!existing) {
     return { ok: false, status: 404, error: "Order not found." };
+  }
+  // Paying online: if the payment has just gone through, don't throw it away.
+  if (existing.status === "awaiting-payment" && (await confirmOrderPayment(existing.id)).paid) {
+    return { ok: false, status: 400, error: "Your payment just came through, so the order has gone to the kitchen." };
   }
   const res = cancelOrderRecord(orderId, user.id);
   return res.ok ? { ok: true } : res;
@@ -255,6 +314,13 @@ async function confirmDeliveryActionImpl(orderId) {
   const updated = confirmOrderReceived(orderId);
   if (!updated) return { ok: false, status: 409, error: "This order has not been marked delivered yet." };
   return { ok: true };
+}
+
+// Optional star rating for the courier, sent with the food review.
+function applyCourierRating(orderId, userId, value) {
+  if (value === null || value === undefined || value === "" || value === "0") return null;
+  const result = setCourierRating(String(orderId), userId, value);
+  return result.ok ? null : result.error;
 }
 
 async function submitOrderReviewActionImpl(formData) {
@@ -282,6 +348,8 @@ async function submitOrderReviewActionImpl(formData) {
     return { ok: false, status: 400, error: "Review comments must be 1000 characters or fewer." };
   }
 
+  const courierRatingError = applyCourierRating(orderId, user.id, formData.get("courierRating"));
+  if (courierRatingError) return { ok: false, status: 400, error: courierRatingError };
   const updated = submitOrderReview(orderId, parsedRating, String(comment || "").trim());
   if (!updated) return { ok: false, status: 409, error: "Reviews are available once after the order is delivered." };
   revalidateMenu();
@@ -305,6 +373,8 @@ async function editOrderReviewActionImpl(formData) {
   const comment = String(formData.get("comment") || "").trim();
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { ok: false, error: "Rating must be from 1 to 5 stars." };
   if (comment.length > 1000) return { ok: false, error: "Review comments must be 1000 characters or fewer." };
+  const courierRatingError = applyCourierRating(orderId, user.id, formData.get("courierRating"));
+  if (courierRatingError) return { ok: false, error: courierRatingError };
   const result = editOrderReview(orderId, rating, comment);
   if (!result.ok) return result;
   revalidateMenu();
@@ -627,7 +697,7 @@ async function updateMyProfileActionImpl(formData) {
   const photoInput = formData.get("photo");
   let photo;
   if (photoInput) {
-    const resolved = resolveImageInput(photoInput, "staff");
+    const resolved = await resolveImageInputAsync(photoInput, "staff");
     if (!resolved.ok) return { ok: false, error: resolved.error };
     photo = resolved.url;
   }
@@ -786,7 +856,14 @@ async function startDeliveryJourneyActionImpl(orderId) {
   const user = await requireRole("delivery");
   if (!user) return { ok: false, error: "Only the assigned courier can start this journey." };
   const res = startDeliveryJourney(orderId, user.id);
-  if (res.ok) notifyCustomer(orderId, "Your food is on the way", `${user.name} is driving to you now. Track them on the live map.`);
+  if (res.ok) {
+    const code = getOrder(orderId)?.deliveryCode;
+    notifyCustomer(
+      orderId,
+      "Your food is on the way",
+      `${user.name} is driving to you now.${code ? ` Your delivery code is ${code}.` : ""} Track them on the live map.`
+    );
+  }
   return { ...res, order: undefined, orders: getDeliveryOrdersFor(user.id) };
 }
 
@@ -798,10 +875,10 @@ async function releaseDeliveryActionImpl(orderId) {
   return { ...res, orders: getDeliveryOrdersFor(user.id) };
 }
 
-async function completeDeliveryActionImpl(orderId) {
+async function completeDeliveryActionImpl(orderId, code) {
   const user = await requireRole("delivery");
   if (!user) return { ok: false, error: "Only the assigned courier can mark an order delivered." };
-  const res = completeDelivery(orderId, user.id);
+  const res = completeDelivery(orderId, user.id, typeof code === "string" ? code : "");
   if (res.ok) notifyCustomer(orderId, "Delivered. Enjoy your meal!", `Order #${orderId} has arrived. Please confirm you received it.`);
   return { ...res, order: undefined, orders: getDeliveryOrdersFor(user.id) };
 }
@@ -835,7 +912,7 @@ async function addDishActionImpl(formData) {
   const input = readDishForm(formData);
   const error = validateDish(input);
   if (error) return { ok: false, error };
-  const image = resolveImageInput(input.image, "dish");
+  const image = await resolveImageInputAsync(input.image, "dish");
   if (!image.ok) return { ok: false, error: image.error };
 
   const newDish = addDish({ ...input, category: input.category || "Traditional", image: image.url });
@@ -850,7 +927,7 @@ async function editDishActionImpl(formData) {
   const input = readDishForm(formData);
   const error = validateDish(input);
   if (error) return { ok: false, error };
-  const image = resolveImageInput(input.image, "dish");
+  const image = await resolveImageInputAsync(input.image, "dish");
   if (!image.ok) return { ok: false, error: image.error };
 
   const updated = updateDish({ id, ...input, image: image.url || undefined });
@@ -925,7 +1002,7 @@ async function createStaffActionImpl(formData) {
   let photo = "";
   const photoInput = formData.get("photo");
   if (photoInput) {
-    const resolved = resolveImageInput(photoInput, "staff");
+    const resolved = await resolveImageInputAsync(photoInput, "staff");
     if (!resolved.ok) return { ok: false, fieldErrors: { photo: resolved.error } };
     photo = resolved.url;
   }
@@ -984,7 +1061,7 @@ async function saveOrderingSettingsActionImpl(changes = {}) {
   const user = await requireRole("admin");
   if (!user) return { ok: false, error: "Only the admin can change this." };
   const allowed = {};
-  for (const key of ["paused", "pauseMessage", "hours"]) if (key in (changes || {})) allowed[key] = changes[key];
+  for (const key of ["paused", "pauseMessage", "hours", "requireDeliveryCode"]) if (key in (changes || {})) allowed[key] = changes[key];
   const result = saveSettings(allowed);
   if (!result.ok) return result;
   revalidatePath("/checkout");
@@ -1197,4 +1274,12 @@ export async function resolveOrderProblemAction(...args) {
 
 export async function deleteMyAccountAction(...args) {
   return withData(() => deleteMyAccountActionImpl(...args));
+}
+
+export async function retryOrderPaymentAction(...args) {
+  return withData(() => retryOrderPaymentActionImpl(...args));
+}
+
+export async function payCashInsteadAction(...args) {
+  return withData(() => payCashInsteadActionImpl(...args));
 }

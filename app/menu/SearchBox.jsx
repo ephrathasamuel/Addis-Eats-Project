@@ -5,9 +5,11 @@ import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { useDebounce } from "@/hooks/useDebounce";
 import { DishCard } from "@/components/DishCard";
+import { useT } from "@/components/Providers";
 
 export function SearchBox() {
   const [term, setTerm] = useState("");
+  const tr = useT();
   const debounced = useDebounce(term, 300);
 
   // When search term is empty, key is null (no fetch happens).
@@ -28,7 +30,7 @@ export function SearchBox() {
           name="search"
           type="search"
           aria-label="Search dishes"
-          placeholder="Search dishes"
+          placeholder={tr("Search dishes")}
           value={term}
           onChange={(e) => setTerm(e.target.value)}
           style={{

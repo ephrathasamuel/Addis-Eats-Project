@@ -1,3 +1,4 @@
+import { Tr } from "@/components/Tr";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { signIn, signUp } from "@/app/actions";
@@ -67,7 +68,7 @@ export default async function SignInPage({ searchParams }) {
           )}
 
           <div className="field">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email"><Tr text="Email" /></label>
             <input
               id="email"
               name="email"
@@ -81,7 +82,7 @@ export default async function SignInPage({ searchParams }) {
           </div>
 
           <div className="field">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password"><Tr text="Password" /></label>
             <PasswordInput
               id="password"
               placeholder={registering ? "At least 8 characters" : "Enter your password"}

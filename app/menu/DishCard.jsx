@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DishImage } from "@/components/DishImage";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { AddToCartButton } from "@/components/AddToCartButton";
+import { Tr } from "@/components/Tr";
 
 export function DishCard({ dish, priority = false }) {
   return (
@@ -31,7 +32,7 @@ export function DishCard({ dish, priority = false }) {
               textTransform: "uppercase",
             }}
           >
-            Sold Out
+            <Tr text="Sold out" />
           </span>
         ) : dish.tag ? (
           <span className="dish-badge">{dish.tag}</span>
@@ -42,8 +43,8 @@ export function DishCard({ dish, priority = false }) {
 
       <div className="dish-card__body">
         <div className="dish-card__header">
-          <span className="dish-category-pill">{dish.category}</span>
-          {dish.spicy && <span className="dish-spicy-indicator" title="Spicy Berbere / Mitmita">Spicy</span>}
+          <span className="dish-category-pill"><Tr text={dish.category} /></span>
+          {dish.spicy && <span className="dish-spicy-indicator" title="Spicy Berbere / Mitmita"><Tr text="Spicy" /></span>}
         </div>
 
         <h2 className="dish-title">

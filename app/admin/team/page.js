@@ -28,7 +28,14 @@ function PersonCard({ person, kind, period }) {
         <Avatar name={person.name} photo={person.photo} size={52} />
         <div className="person-card__who">
           <strong>{person.name}</strong>
-          <span>{person.removed ? "No longer on staff" : kind === "kitchen" ? "Kitchen" : "Delivery"}</span>
+          <span>
+            {person.removed ? "No longer on staff" : kind === "kitchen" ? "Kitchen" : "Delivery"}
+            {kind === "delivery" && person.rating ? (
+              <span className="person-card__rating" title={`${person.ratingCount} customer rating${person.ratingCount === 1 ? "" : "s"}`}>
+                {" "}· ★ {person.rating.toFixed(1)}
+              </span>
+            ) : null}
+          </span>
         </div>
         {person.rank ? (
           <span className={`rank-badge rank-badge--${Math.min(person.rank, 4)}`} title={`Rank ${person.rank}`}>

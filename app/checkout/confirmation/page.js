@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ClearCartOnMount } from "@/components/ClearCartOnMount";
 import { PushToggle } from "@/components/PushToggle";
+import { Tr } from "@/components/Tr";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,9 @@ export default async function ConfirmationPage({ searchParams }) {
   if (!order) {
     notFound();
   }
+  // Not paid yet: the payment page explains and offers the choices.
+  if (order.status === "awaiting-payment") redirect(`/checkout/payment?order=${order.id}`);
+  const paidOnline = order.payment?.status === "paid";
 
   return (
     <div className="confirmation-page-wrapper">
@@ -30,7 +34,7 @@ export default async function ConfirmationPage({ searchParams }) {
           </svg>
         </div>
 
-        <h1 className="confirmation-title">Order Placed Successfully</h1>
+        <h1 className="confirmation-title"><Tr text="Order Placed Successfully" /></h1>
         <p className="confirmation-greeting">
           Thank you, <strong>{order.name}</strong>. Your order has been received by our kitchen.
         </p>
@@ -52,11 +56,15 @@ export default async function ConfirmationPage({ searchParams }) {
         {/* Order Quick Details */}
         <div className="confirmation-details-box">
           <div className="confirmation-detail-item">
-            <span className="confirmation-detail-label">Order Number</span>
+            <span className="confirmation-detail-label"><Tr text="Order Number" /></span>
             <strong className="confirmation-detail-val">#{order.id}</strong>
           </div>
           <div className="confirmation-detail-item">
-            <span className="confirmation-detail-label">Total Amount</span>
+            <span className="confirmation-detail-label"><Tr text="Payment" /></span>
+            <strong className="confirmation-detail-val"><Tr text={paidOnline ? "Paid online" : "Cash on delivery"} /></strong>
+          </div>
+          <div className="confirmation-detail-item">
+            <span className="confirmation-detail-label"><Tr text="Total Amount" /></span>
             <strong className="confirmation-detail-val">{order.total} ETB</strong>
           </div>
           <div className="confirmation-detail-item">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useT } from "@/components/Providers";
 
 // The only interactivity here is "which category is selected" - that's a
 // URL search param, not component state, so the sidebar survives navigation
@@ -10,6 +11,7 @@ export function CategoryBar({ categories }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const active = searchParams.get("category");
+  const tr = useT();
 
   function select(category) {
     const params = new URLSearchParams(searchParams.toString());
@@ -28,7 +30,7 @@ export function CategoryBar({ categories }) {
         className={!active ? "category active" : "category"}
         onClick={() => select(null)}
       >
-        All
+        {tr("All")}
       </button>
       {categories.map((category) => (
         <button
@@ -37,7 +39,7 @@ export function CategoryBar({ categories }) {
           className={active === category ? "category active" : "category"}
           onClick={() => select(category)}
         >
-          {category}
+          {tr(category)}
         </button>
       ))}
     </nav>

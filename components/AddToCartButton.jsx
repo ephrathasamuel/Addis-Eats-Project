@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useCart, useSession } from "@/components/Providers";
+import { Tr } from "@/components/Tr";
 import { setDishSoldOutAction } from "@/app/actions";
 
 // Customers (and signed-out visitors) get "Add to cart". Kitchen staff and
@@ -35,7 +36,7 @@ function SoldOutLabel({ size }) {
       }}
       title="This dish is currently sold out."
     >
-      Sold out
+      <Tr text="Sold out" />
     </button>
   );
 }
@@ -62,7 +63,7 @@ function CustomerAddButton({ dish, size }) {
       className={`add-to-cart ${size === "compact" ? "add-to-cart--compact" : ""}`}
       onClick={handleClick}
     >
-      {justAdded ? "Added" : "Add to cart"}
+      <Tr text={justAdded ? "Added" : "Add to cart"} />
     </button>
   );
 }

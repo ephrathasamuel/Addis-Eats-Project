@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BUSINESS, LEGAL_UPDATED } from "@/lib/business";
 import { getPricing } from "@/lib/pricing";
+import { isOnlinePaymentEnabled } from "@/lib/payments";
 
 export const metadata = {
   title: "Terms of service",
@@ -38,7 +39,15 @@ export default function TermsPage() {
       </ul>
 
       <h2>Payment</h2>
-      <p>You pay the courier in cash when your order arrives. Online payment is not available yet.</p>
+      {isOnlinePaymentEnabled() ? (
+        <p>
+          You can pay online when you order (telebirr, CBE Birr or card, processed by Chapa), or pay the courier in
+          cash when your order arrives. An order paid online goes to the kitchen once the payment is confirmed. To
+          cancel an order you have already paid for, call us and we will arrange the refund.
+        </p>
+      ) : (
+        <p>You pay the courier in cash when your order arrives. Online payment is not available yet.</p>
+      )}
 
       <h2>Cancelling</h2>
       <p>

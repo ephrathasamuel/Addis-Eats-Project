@@ -1,17 +1,22 @@
 import "./globals.css";
-import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
+import { Fraunces, Noto_Sans_Ethiopic, Plus_Jakarta_Sans } from "next/font/google";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Providers } from "@/components/Providers";
 import { WelcomeNotice } from "@/components/WelcomeNotice";
 import { HideOnStaffSignIn } from "@/components/HideOnStaffSignIn";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { headers } from "next/headers";
 import { getSession } from "@/lib/session";
+import { getLang } from "@/lib/lang-server";
+import { t } from "@/lib/i18n";
 
 // Fonts are downloaded at build time and served from this site (no requests
 // to Google from visitors). Plus Jakarta Sans for text, Fraunces for headings.
 const bodyFont = Plus_Jakarta_Sans({ subsets: ["latin"], display: "swap", variable: "--font-body" });
 const displayFont = Fraunces({ subsets: ["latin"], display: "swap", variable: "--font-display" });
+// Amharic letters (Ge'ez script); only downloaded by pages that show them.
+const ethiopicFont = Noto_Sans_Ethiopic({ subsets: ["ethiopic"], display: "swap", variable: "--font-ethiopic", preload: false });
 
 export const metadata = {
   title: "Addis Eats",
@@ -47,6 +52,9 @@ export default async function RootLayout({ children }) {
   // Resolved on the server so role-aware UI (header links, Add to cart vs.
   // sold-out toggles) is correct on the very first paint.
   const session = await getSession();
+  // The security policy only lets scripts with this request's nonce run.
+  const nonce = (await headers()).get("x-nonce") || undefined;
+  const lang = await getLang();
   const initialUser = session
     ? { id: session.id, name: session.name, email: session.email, role: session.role, photo: session.photo || "" }
     : null;
@@ -59,20 +67,20 @@ export default async function RootLayout({ children }) {
     // attribute at all (the server doesn't know the visitor's saved
     // preference), so without this, React correctly notices the mismatch
     // and warns about it even though it's expected and harmless.
-    <html lang="en" className={`${bodyFont.variable} ${displayFont.variable}`} suppressHydrationWarning>
+    <html lang={lang} className={`${bodyFont.variable} ${displayFont.variable} ${ethiopicFont.variable}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
-        <Providers initialUser={initialUser}>
-          <a href="#main" className="skip-link">Skip to content</a>
+        <Providers initialUser={initialUser} initialLang={lang}>
+          <a href="#main" className="skip-link">{t(lang, "Skip to content")}</a>
           <Header />
           <main id="main">
             <WelcomeNotice />
             {children}
           </main>
           <HideOnStaffSignIn>
-            <Footer />
+            <Footer lang={lang} />
           </HideOnStaffSignIn>
           <ScrollToTop />
         </Providers>

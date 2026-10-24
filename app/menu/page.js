@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { DishList } from "@/components/DishList";
 import { SearchBox } from "./SearchBox";
+import { Tr } from "@/components/Tr";
 
 export const metadata = {
   title: "Menu",
@@ -17,7 +18,7 @@ export default async function MenuPage({ searchParams }) {
 
   return (
     <section>
-      <h1>Menu</h1>
+      <h1><Tr text="Menu" /></h1>
       <SearchBox />
       <Suspense key={`${category ?? "all"}-${page}`} fallback={<p>Loading dishes…</p>}>
         <DishList category={category} page={page} />

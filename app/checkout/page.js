@@ -1,11 +1,14 @@
 import Image from "next/image";
+import { isUploadedImage } from "@/lib/images";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { getKitchenEstimate, priceOrderItems } from "@/lib/orders";
 import { getPricing, quoteAllAreas } from "@/lib/pricing";
 import OrderForm from "./OrderForm";
+import { Tr } from "@/components/Tr";
 import { getOrderingStatus } from "@/lib/settings";
+import { isOnlinePaymentEnabled, isTestMode } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +48,7 @@ export default async function CheckoutPage({ searchParams }) {
     <div className="checkout-layout">
       <div className="checkout-header-banner">
         <div>
-          <h1 className="checkout-title">Order Checkout</h1>
+          <h1 className="checkout-title"><Tr text="Order Checkout" /></h1>
           <p className="checkout-subtitle">
             Review your selected dishes | Enter delivery address | Pay cash on delivery
           </p>
@@ -54,7 +57,7 @@ export default async function CheckoutPage({ searchParams }) {
 
       {!ordering.open && (
         <div className="ordering-closed-notice" role="status">
-          <strong>{ordering.reason === "hours" ? "We're closed" : "Orders are paused"}</strong>
+          <strong><Tr text={ordering.reason === "hours" ? "We're closed" : "Orders are paused"} /></strong>
           <span>{ordering.message}</span>
         </div>
       )}
@@ -110,7 +113,7 @@ export default async function CheckoutPage({ searchParams }) {
                           height={92}
                           className="checkout-dish-thumb"
                           style={{ objectFit: "cover" }}
-                          unoptimized={imageUrl.startsWith("/media/")}
+                          unoptimized={isUploadedImage(imageUrl)}
                         />
                       </div>
                       <div className="checkout-dish-info">
@@ -161,19 +164,21 @@ export default async function CheckoutPage({ searchParams }) {
           {/* Right Column: Customer Details Form */}
           <section className="checkout-card" aria-labelledby="delivery-details-heading">
             <div className="checkout-card__header">
-              <h2 id="delivery-details-heading">Delivery Details</h2>
+              <h2 id="delivery-details-heading"><Tr text="Delivery Details" /></h2>
             </div>
 
-            <OrderForm itemsRaw={itemsRaw} foodSubtotal={subtotal} initialName={user.name || ""} kitchenEstimate={items.length ? getKitchenEstimate(items) : null} areaFees={items.length ? await quoteAllAreas() : {}} pricing={getPricing()} />
+            <OrderForm itemsRaw={itemsRaw} foodSubtotal={subtotal} initialName={user.name || ""} kitchenEstimate={items.length ? getKitchenEstimate(items) : null} areaFees={items.length ? await quoteAllAreas() : {}} pricing={getPricing()} onlinePayment={isOnlinePaymentEnabled() ? { testMode: isTestMode() } : null} />
 
             <div className="payment-options-note">
-              <h4>Payment</h4>
+              <h4><Tr text="Payment" /></h4>
               <p>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: "inline-block", verticalAlign: "middle", marginRight: "0.4rem" }}>
                   <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
                   <line x1="12" y1="18" x2="12.01" y2="18" />
                 </svg>
-                Cash on delivery: pay the courier when your order arrives.
+                {isOnlinePaymentEnabled()
+                  ? "Pay now with telebirr, CBE Birr or card, or pay the courier in cash when your order arrives."
+                  : "Cash on delivery: pay the courier when your order arrives."}
               </p>
             </div>
           </section>

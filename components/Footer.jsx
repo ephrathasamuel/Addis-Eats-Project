@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BUSINESS } from "@/lib/business";
+import { t } from "@/lib/i18n";
 
 const MAP_URL = "https://www.google.com/maps/search/?api=1&query=Bole+Road%2C+Addis+Ababa%2C+Ethiopia";
 
@@ -27,26 +28,27 @@ function Icon({ name }) {
   );
 }
 
-export function Footer() {
+export function Footer({ lang = "en" }) {
   const year = new Date().getFullYear();
+  const tr = (text) => t(lang, text);
 
   return (
     <footer className="site-footer">
       <div className="site-footer__inner">
         <div className="footer-col footer-col--brand">
           <p className="footer-brand">Addis Eats</p>
-          <p className="empty">Ethiopian food, cooked slow and ordered online.</p>
+          <p className="empty">{tr("Ethiopian food, cooked slow and ordered online.")}</p>
         </div>
 
         <div className="footer-col footer-col--visit">
-          <p className="footer-col__title">Contact us</p>
+          <p className="footer-col__title">{tr("Contact us")}</p>
           <div className="footer-contact">
             <a href={BUSINESS.phoneHref} className="footer-contact__item">
-              <span className="footer-contact__label"><Icon name="phone" /> Call us</span>
+              <span className="footer-contact__label"><Icon name="phone" /> {tr("Call us")}</span>
               <span>{BUSINESS.phone}</span>
             </a>
             <a href={`mailto:${BUSINESS.email}`} className="footer-contact__item">
-              <span className="footer-contact__label"><Icon name="mail" /> Email us</span>
+              <span className="footer-contact__label"><Icon name="mail" /> {tr("Email us")}</span>
               <span>{BUSINESS.email}</span>
             </a>
           </div>
@@ -58,24 +60,24 @@ export function Footer() {
         </div>
 
         <div className="footer-col footer-col--explore">
-          <p className="footer-col__title">Explore</p>
+          <p className="footer-col__title">{tr("Explore")}</p>
           {/* Menu, Favorites and Orders are already in the phone tab bar. */}
-          <p className="footer-link--tabbar"><Link href="/menu">Menu</Link></p>
-          <p><Link href="/track">Live Courier Map</Link></p>
-          <p className="footer-link--tabbar"><Link href="/favorites">Favorites</Link></p>
-          <p className="footer-link--tabbar"><Link href="/orders">Order History</Link></p>
-          <p><Link href="/profile">Your profile</Link></p>
+          <p className="footer-link--tabbar"><Link href="/menu">{tr("Menu")}</Link></p>
+          <p><Link href="/track">{tr("Live Courier Map")}</Link></p>
+          <p className="footer-link--tabbar"><Link href="/favorites">{tr("Favorites")}</Link></p>
+          <p className="footer-link--tabbar"><Link href="/orders">{tr("Order History")}</Link></p>
+          <p><Link href="/profile">{tr("Your profile")}</Link></p>
         </div>
 
         <div className="footer-col footer-col--legal">
-          <p className="footer-col__title">Legal</p>
-          <p><Link href="/privacy">Privacy policy</Link></p>
-          <p><Link href="/terms">Terms of service</Link></p>
+          <p className="footer-col__title">{tr("Legal")}</p>
+          <p><Link href="/privacy">{tr("Privacy policy")}</Link></p>
+          <p><Link href="/terms">{tr("Terms of service")}</Link></p>
         </div>
       </div>
 
       <div className="site-footer__bottom">
-        <p>© {year} Addis Eats. All rights reserved.</p>
+        <p>© {year} Addis Eats. {tr("All rights reserved.")}</p>
       </div>
     </footer>
   );

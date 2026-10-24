@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Tr } from "@/components/Tr";
 import Image from "next/image";
 import { getDishes, HERO_IMAGE } from "@/lib/dishes";
 import { DishCard } from "@/components/DishCard";
@@ -56,29 +57,29 @@ export default async function HomePage() {
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
               </svg>
             </span>
-            <span>Addis Ababa Premier Kitchen : Authentic & Artisanal</span>
+            <span><Tr text="Addis Ababa Premier Kitchen : Authentic & Artisanal" /></span>
           </div>
 
           <h1 className="hero-banner__title">
-            Savor the True Flavors of Ethiopia & Western Classics
+            <Tr text="Savor the True Flavors of Ethiopia & Western Classics" />
           </h1>
 
           <p className="hero-banner__desc">
-            Slow-cooked clay-pot Doro Wat, sizzling Shekla Tibs, wood-fired pizzas, and gourmet burgers. Delivered hot to your door, with a live time estimate before you order.
+            <Tr text="Slow-cooked clay-pot Doro Wat, sizzling Shekla Tibs, wood-fired pizzas, and gourmet burgers. Delivered hot to your door, with a live time estimate before you order." />
           </p>
 
           <div className="hero-banner__actions">
             <Link href="/menu" className="btn-primary hero-btn">
-              All Dishes
+              <Tr text="All Dishes" />
             </Link>
             <Link href="/menu?category=Traditional" className="btn-secondary hero-btn hero-btn--outline">
-              Traditional
+              <Tr text="Traditional" />
             </Link>
             <Link href="/menu?category=Western" className="btn-secondary hero-btn hero-btn--outline">
-              Western
+              <Tr text="Western" />
             </Link>
             <Link href="/menu?category=Drinks" className="btn-secondary hero-btn hero-btn--outline">
-              Drinks
+              <Tr text="Drinks" />
             </Link>
           </div>
         </div>
@@ -95,8 +96,8 @@ export default async function HomePage() {
             </svg>
           </span>
           <div>
-            <strong>Live Courier GPS Tracking</strong>
-            <p>Real-time OpenStreetMap across Bole, Kazanchis, Piassa &amp; Sarbet</p>
+            <strong><Tr text="Live Courier GPS Tracking" /></strong>
+            <p><Tr text="Real-time OpenStreetMap across Bole, Kazanchis, Piassa & Sarbet" /></p>
           </div>
         </Link>
         <div className="value-item">
@@ -110,8 +111,8 @@ export default async function HomePage() {
             </svg>
           </span>
           <div>
-            <strong>Clay Pot & Wood-Fired</strong>
-            <p>Traditional heritage recipes and stone-baked pizzas</p>
+            <strong><Tr text="Clay Pot & Wood-Fired" /></strong>
+            <p><Tr text="Traditional heritage recipes and stone-baked pizzas" /></p>
           </div>
         </div>
         <div className="value-item">
@@ -122,8 +123,8 @@ export default async function HomePage() {
             </svg>
           </span>
           <div>
-            <strong>Cash on Delivery</strong>
-            <p>Pay the courier when your food arrives</p>
+            <strong><Tr text="Cash on Delivery" /></strong>
+            <p><Tr text="Pay the courier when your food arrives" /></p>
           </div>
         </div>
       </section>
@@ -131,31 +132,31 @@ export default async function HomePage() {
       {/* Quick Category Navigation Strip */}
       <nav className="category-bar category-bar--home" aria-label="Browse categories">
         <Link href="/menu" className="category active">
-          All
+          <Tr text="All" />
         </Link>
         <Link href="/menu?category=Traditional" className="category">
-          Traditional
+          <Tr text="Traditional" />
         </Link>
         <Link href="/menu?category=Western" className="category">
-          Western
+          <Tr text="Western" />
         </Link>
         <Link href="/menu?category=Drinks" className="category">
-          Drinks
+          <Tr text="Drinks" />
         </Link>
       </nav>
 
       {/* Traditional Ethiopian Cuisine Showcase */}
       <section className="home-section">
         <div className="home-section__header">
-          <span className="section-eyebrow">Heritage Cooking</span>
+          <span className="section-eyebrow"><Tr text="Heritage Cooking" /></span>
           <div className="home-section__row">
-            <h2>Traditional Ethiopian Specialties</h2>
+            <h2><Tr text="Traditional Ethiopian Specialties" /></h2>
             <Link
               href="/menu?category=Traditional"
               className="section-more-link"
               aria-label="See all traditional Ethiopian specialties"
             >
-              <span>See all</span>
+              <span><Tr text="See all" /></span>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M5 12h14" />
                 <path d="M12 5l7 7-7 7" />
@@ -173,15 +174,15 @@ export default async function HomePage() {
       {/* Western Cuisine Showcase */}
       <section className="home-section">
         <div className="home-section__header">
-          <span className="section-eyebrow">Artisanal & Modern</span>
+          <span className="section-eyebrow"><Tr text="Artisanal & Modern" /></span>
           <div className="home-section__row">
-            <h2>Western Kitchen Favorites</h2>
+            <h2><Tr text="Western Kitchen Favorites" /></h2>
             <Link
               href="/menu?category=Western"
               className="section-more-link"
               aria-label="See all western kitchen favorites"
             >
-              <span>See all</span>
+              <span><Tr text="See all" /></span>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M5 12h14" />
                 <path d="M12 5l7 7-7 7" />
@@ -199,15 +200,15 @@ export default async function HomePage() {
       {/* Coffee & Beverages Showcase */}
       <section className="home-section">
         <div className="home-section__header">
-          <span className="section-eyebrow">Ceremonial & Cold</span>
+          <span className="section-eyebrow"><Tr text="Ceremonial & Cold" /></span>
           <div className="home-section__row">
-            <h2>Coffee Ceremony & Beverages</h2>
+            <h2><Tr text="Coffee Ceremony & Beverages" /></h2>
             <Link
               href="/menu?category=Drinks"
               className="section-more-link"
               aria-label="See all coffee ceremony and beverages"
             >
-              <span>See all</span>
+              <span><Tr text="See all" /></span>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M5 12h14" />
                 <path d="M12 5l7 7-7 7" />

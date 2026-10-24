@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import { Tr } from "@/components/Tr";
+import { isUploadedImage } from "@/lib/images";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/components/Providers";
@@ -29,10 +31,10 @@ export default function CartPage() {
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
             </svg>
           </div>
-          <h2>Your cart is empty</h2>
-          <p>Explore our Traditional Ethiopian stews or Western favorites to get started.</p>
+          <h2><Tr text="Your cart is empty" /></h2>
+          <p><Tr text="Explore our Traditional Ethiopian stews or Western favorites to get started." /></p>
           <Link href="/menu" className="btn-primary" style={{ marginTop: "1rem", display: "inline-block" }}>
-            Browse Menu
+            <Tr text="Browse Menu" />
           </Link>
         </div>
       </div>
@@ -50,9 +52,9 @@ export default function CartPage() {
     <div className="cart-layout">
       <div className="checkout-header-banner">
         <div>
-          <h1 className="checkout-title">Your Cart</h1>
+          <h1 className="checkout-title"><Tr text="Your Cart" /></h1>
           <p className="checkout-subtitle">
-            Review your selected dishes | Adjust portions | Delivery fee depends on your neighborhood
+            <Tr text="Review your selected dishes | Adjust portions | Delivery fee depends on your neighborhood" />
           </p>
         </div>
       </div>
@@ -83,7 +85,7 @@ export default function CartPage() {
                         height={76}
                         className="cart-dish-thumb"
                         style={{ objectFit: "cover" }}
-                        unoptimized={imageUrl.startsWith("/media/")}
+                        unoptimized={isUploadedImage(imageUrl)}
                       />
                     </div>
                     <div className="cart-dish-info">
@@ -155,25 +157,25 @@ export default function CartPage() {
         {/* Right Column: Order Summary */}
         <aside className="checkout-card cart-summary-card" aria-label="Cart summary">
           <div className="checkout-card__header">
-            <h2>Order Summary</h2>
+            <h2><Tr text="Order Summary" /></h2>
           </div>
 
           <div className="checkout-breakdown">
             <div className="breakdown-row">
-              <span>Items Subtotal</span>
+              <span><Tr text="Items Subtotal" /></span>
               <span>{total} ETB</span>
             </div>
             <div className="breakdown-row breakdown-row--multiline">
               <div className="breakdown-label">
-                <span>Delivery Fee</span>
-                <small className="breakdown-sub">(by distance, shown at checkout)</small>
+                <span><Tr text="Delivery Fee" /></span>
+                <small className="breakdown-sub"><Tr text="(by distance, shown at checkout)" /></small>
               </div>
               <div className="breakdown-val">
-                <span>From 115 ETB</span>
+                <span><Tr text="From 115 ETB" /></span>
               </div>
             </div>
             <div className="breakdown-row breakdown-row--grand">
-              <span className="grand-label">Food total</span>
+              <span className="grand-label"><Tr text="Food total" /></span>
               <span className="grand-total-val">{total} ETB</span>
             </div>
           </div>
@@ -184,7 +186,7 @@ export default function CartPage() {
             style={{ width: "100%", marginTop: "1.25rem", padding: "0.85rem", fontSize: "1rem" }}
             onClick={goToCheckout}
           >
-            Proceed to Checkout
+            <Tr text="Proceed to Checkout" />
           </button>
           <Link
             href="/menu"
@@ -197,7 +199,7 @@ export default function CartPage() {
               textDecoration: "none",
             }}
           >
-            Back to Menu
+            <Tr text="Back to Menu" />
           </Link>
         </aside>
       </div>

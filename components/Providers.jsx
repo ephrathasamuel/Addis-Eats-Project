@@ -2,22 +2,44 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
+import { t } from "@/lib/i18n";
 
 const CartContext = createContext(null);
 const FavoritesContext = createContext(null);
 const SessionContext = createContext(null);
+const LangContext = createContext({ lang: "en", setLang: () => {} });
 
 const CART_KEY = "addis-eats-cart";
 const FAVORITES_KEY = "addis-eats-favorites";
 
-export function Providers({ children, initialUser = null }) {
+export function Providers({ children, initialUser = null, initialLang = "en" }) {
   return (
-    <SessionProvider initialUser={initialUser}>
-      <CartProvider>
-        <FavoritesProvider>{children}</FavoritesProvider>
-      </CartProvider>
-    </SessionProvider>
+    <LangProvider initialLang={initialLang}>
+      <SessionProvider initialUser={initialUser}>
+        <CartProvider>
+          <FavoritesProvider>{children}</FavoritesProvider>
+        </CartProvider>
+      </SessionProvider>
+    </LangProvider>
   );
+}
+
+// The visitor's language, chosen with the header switch (see lib/i18n.js).
+function LangProvider({ children, initialLang }) {
+  const [lang, setLang] = useState(initialLang);
+  useEffect(() => setLang(initialLang), [initialLang]);
+  const value = useMemo(() => ({ lang, setLang }), [lang]);
+  return <LangContext.Provider value={value}>{children}</LangContext.Provider>;
+}
+
+export function useLang() {
+  return useContext(LangContext);
+}
+
+/** const tr = useT(); tr("Add to cart") — English unless Amharic was chosen. */
+export function useT() {
+  const { lang } = useContext(LangContext);
+  return useCallback((text, values) => t(lang, text, values), [lang]);
 }
 
 // Who is signed in. Seeded by the root layout on the server, then re-checked

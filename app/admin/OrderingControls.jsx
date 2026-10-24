@@ -11,6 +11,7 @@ export function OrderingControls({ initial, status }) {
   const [open, setOpen] = useState(initial.hours?.open || "09:00");
   const [close, setClose] = useState(initial.hours?.close || "22:00");
   const [message, setMessage] = useState(initial.pauseMessage || "");
+  const [requireCode, setRequireCode] = useState(initial.requireDeliveryCode !== false);
   const [state, setState] = useState({ pending: false, error: "", saved: "" });
 
   async function save(changes, savedText) {
@@ -51,7 +52,7 @@ export function OrderingControls({ initial, status }) {
       </div>
 
       <details className="ordering-controls__more">
-        <summary>Opening hours and pause message</summary>
+        <summary>Opening hours, pause message and delivery code</summary>
         <div className="field">
           <label htmlFor="pause-message">Message shown to customers while paused (optional)</label>
           <input
@@ -65,6 +66,10 @@ export function OrderingControls({ initial, status }) {
         <label className="ordering-controls__check">
           <input type="checkbox" checked={useHours} onChange={(event) => setUseHours(event.target.checked)} />
           Only take orders during opening hours
+        </label>
+        <label className="ordering-controls__check">
+          <input type="checkbox" checked={requireCode} onChange={(event) => setRequireCode(event.target.checked)} />
+          Couriers must enter the customer&apos;s 4-digit delivery code to finish a delivery
         </label>
         {useHours && (
           <div className="form-grid">
@@ -82,7 +87,9 @@ export function OrderingControls({ initial, status }) {
           type="button"
           className="btn-primary"
           disabled={state.pending}
-          onClick={() => save({ pauseMessage: message, hours: useHours ? { open, close } : null }, "Settings saved.")}
+          onClick={() =>
+            save({ pauseMessage: message, hours: useHours ? { open, close } : null, requireDeliveryCode: requireCode }, "Settings saved.")
+          }
         >
           Save
         </button>

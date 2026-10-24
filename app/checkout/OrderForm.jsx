@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { estimateDelivery, placeOrder } from "@/app/actions";
 import { DELIVERY_LOCATIONS, isInAddis } from "@/lib/locations";
+import { useT } from "@/components/Providers";
 
 const PHONE_RE = /^(?:\+251|0)[79]\d{8}$/;
 
@@ -14,8 +15,10 @@ function validatePhone(value) {
   return null;
 }
 
-export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", kitchenEstimate, areaFees = {}, pricing }) {
+export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", kitchenEstimate, areaFees = {}, pricing, onlinePayment = null }) {
   const router = useRouter();
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const tr = useT();
   const [name, setName] = useState(initialName);
   const [phone, setPhone] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("Bole");
@@ -61,6 +64,11 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
       // On success the action redirects to the confirmation page; it only
       // returns when something needs fixing.
       const result = await placeOrder(formData);
+      if (result?.ok && result.payUrl) {
+        // Off to Chapa's payment page; it sends the customer back afterwards.
+        window.location.assign(result.payUrl);
+        return;
+      }
       if (result && !result.ok) {
         if (result.signIn) {
           router.push(`/signin?next=${encodeURIComponent("/cart")}`);
@@ -113,7 +121,7 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
       <input type="hidden" name="deliveryLongitude" value={deliveryCoordinates?.longitude ?? ""} />
 
       <div className="field">
-        <label htmlFor="name">Full Name</label>
+        <label htmlFor="name">{tr("Full Name")}</label>
         <input
           id="name"
           name="name"
@@ -133,7 +141,7 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
       </div>
 
       <div className="field">
-        <label htmlFor="phone">Phone number</label>
+        <label htmlFor="phone">{tr("Phone number")}</label>
         <input
           id="phone"
           name="phone"
@@ -155,7 +163,7 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
       </div>
 
       <div className="field">
-        <label htmlFor="location-select">Delivery Neighborhood</label>
+        <label htmlFor="location-select">{tr("Delivery Neighborhood")}</label>
         <select
           id="location-select"
           value={selectedLocation}
@@ -175,7 +183,7 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
 
       {isOther && (
         <div className="field">
-          <label htmlFor="custom-location">Your Neighborhood / Landmark</label>
+          <label htmlFor="custom-location">{tr("Your Neighborhood / Landmark")}</label>
           <input
             id="custom-location"
             name="customLocation"
@@ -194,7 +202,7 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
       )}
 
       <div className="field">
-        <label htmlFor="address-details">Directions for the courier (optional)</label>
+        <label htmlFor="address-details">{tr("Directions for the courier (optional)")}</label>
         <input
           id="address-details"
           name="addressDetails"
@@ -210,7 +218,7 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
 
       <div className="location-attach">
         <div className="location-attach__text">
-          <strong>Attach your exact location</strong>
+          <strong>{tr("Attach your exact location")}</strong>
           <span className="optional-tag">Optional</span>
           <p>Helps the courier find you faster. Your browser will ask for permission.</p>
         </div>
@@ -280,14 +288,43 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
       </div>
 
       <div className="checkout-total-row">
-        <span>Total (Food + Delivery):</span>
+        <span>{tr("Total (Food + Delivery):")}</span>
         <strong>{grandTotal} ETB</strong>
       </div>
+
+      {onlinePayment && (
+        <fieldset className="payment-choice">
+          <legend>{tr("How would you like to pay?")}</legend>
+          <label className={`payment-choice__option ${paymentMethod === "cash" ? "is-selected" : ""}`}>
+            <input type="radio" name="paymentMethod" value="cash" checked={paymentMethod === "cash"} onChange={() => setPaymentMethod("cash")} />
+            <span>
+              <strong>{tr("Cash on delivery")}</strong>
+              <small>{tr("Pay the courier when your food arrives.")}</small>
+            </span>
+          </label>
+          <label className={`payment-choice__option ${paymentMethod === "online" ? "is-selected" : ""}`}>
+            <input type="radio" name="paymentMethod" value="online" checked={paymentMethod === "online"} onChange={() => setPaymentMethod("online")} />
+            <span>
+              <strong>{tr("Pay now")}</strong>
+              <small>
+                {tr("telebirr, CBE Birr or card, through Chapa.")}
+                {onlinePayment.testMode ? " (Test mode: no real money.)" : ""}
+              </small>
+            </span>
+          </label>
+        </fieldset>
+      )}
 
       {formError && <p className="field-error" role="alert" style={{ marginBottom: "0.75rem" }}>{formError}</p>}
 
       <button type="submit" disabled={pending} className="primary btn-block checkout-submit-btn" aria-busy={pending}>
-        {pending ? "Placing your order…" : `Place order (${grandTotal} ETB)`}
+        {pending
+          ? paymentMethod === "online"
+            ? tr("Opening payment…")
+            : tr("Placing your order…")
+          : paymentMethod === "online"
+          ? tr("Pay {total} ETB now", { total: grandTotal })
+          : tr("Place order ({total} ETB)", { total: grandTotal })}
       </button>
     </form>
   );

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { isUploadedImage } from "@/lib/images";
 
 // Day 43 Optimization: Replaced standard <img> with Next.js <Image />
 // Implements automatic WebP/AVIF compression, responsive srcset via sizes,
@@ -28,7 +29,7 @@ export function DishImage({ dish, size = "card", priority = false }) {
           }
           style={{ objectFit: "cover" }}
           // Admin-uploaded photos are already resized in the browser and served from /media.
-          unoptimized={dish.image.startsWith("/media/") || dish.image.startsWith("data:")}
+          unoptimized={isUploadedImage(dish.image)}
           onError={() => setFailed(true)}
         />
       </div>

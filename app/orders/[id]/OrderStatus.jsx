@@ -7,6 +7,7 @@ import Link from "next/link";
 import { confirmDeliveryAction, submitOrderReviewAction, editOrderReviewAction, cancelOrder } from "@/app/actions";
 import { Avatar } from "@/components/Modal";
 import { PushToggle } from "@/components/PushToggle";
+import { useT } from "@/components/Providers";
 
 export function OrderStatus({ id, initial, back = { href: "/orders", label: "Back to order history" } }) {
   const [cancelling, setCancelling] = useState(false);
@@ -50,6 +51,8 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
   const [isReviewed, setIsReviewed] = useState(Boolean(current.reviewed));
   const [rating, setRating] = useState(current.reviewRating || 5);
   const [comment, setComment] = useState(current.reviewComment || "");
+  const [courierRating, setCourierRating] = useState(current.courierRating || 0);
+  const tr = useT();
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [editingReview, setEditingReview] = useState(false);
   // Reviews can be changed for 48 hours after first posting.
@@ -72,12 +75,15 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
         return { label: "Cooking in Kitchen", bg: "rgba(245, 158, 11, 0.15)", color: "#d97706" };
       case "cancelled":
         return { label: "Cancelled", bg: "rgba(239, 68, 68, 0.15)", color: "#dc2626" };
+      case "awaiting-payment":
+        return { label: "Waiting for Payment", bg: "rgba(245, 158, 11, 0.15)", color: "#d97706" };
       default:
         return { label: "Order Placed", bg: "var(--brand-light)", color: "var(--brand-dark)" };
     }
   };
 
-  const badge = getStatusBadge(current.status);
+  const rawBadge = getStatusBadge(current.status);
+  const badge = { ...rawBadge, label: tr(rawBadge.label) };
 
   // Cooking time comes from the kitchen's real averages; drive time from the
   // road (or live traffic) when the customer shared a pin, otherwise the
@@ -123,6 +129,7 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
     formData.set("orderId", current.id);
     formData.set("rating", String(rating));
     formData.set("comment", comment);
+    if (courierRating) formData.set("courierRating", String(courierRating));
     try {
       const result = isReviewed ? await editOrderReviewAction(formData) : await submitOrderReviewAction(formData);
       if (!result?.ok) {
@@ -196,7 +203,24 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
         )}
       </div>
 
+      {current.status === "awaiting-payment" && (
+        <div className="payment-due-card" role="status">
+          <strong>{tr("This order isn't paid yet")}</strong>
+          <span>The kitchen starts cooking once your payment comes through.</span>
+          <a href={`/checkout/payment?order=${current.id}`} className="btn-primary">{tr("Finish payment")}</a>
+        </div>
+      )}
+      {current.payment?.status === "paid" && current.status !== "cancelled" && (
+        <p className="paid-online-note">Paid online{current.payment.via ? ` with ${current.payment.via}` : ""}. Nothing to pay at the door.</p>
+      )}
       {current.courier && <CourierCard courier={current.courier} delivered={current.status === "delivered"} />}
+      {current.deliveryCode && current.courier && ["served", "on-the-way"].includes(current.status) && (
+        <div className="delivery-code-card" role="note">
+          <span className="delivery-code-card__label">{tr("Your delivery code")}</span>
+          <strong className="delivery-code-card__code">{current.deliveryCode}</strong>
+          <span className="text-muted">{tr("Tell this code to your courier when your food arrives. Don't share it before then.")}</span>
+        </div>
+      )}
 
       {!isFinished && (
         <div style={{ marginBottom: "1.25rem" }}>
@@ -385,6 +409,27 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
                 </div>
               </div>
 
+              {current.courier && (
+                <div className="courier-rating">
+                  <span className="courier-rating__label">Rate your courier, {current.courier.name} (optional)</span>
+                  <div className="courier-rating__stars" role="radiogroup" aria-label="Courier rating">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        role="radio"
+                        aria-checked={courierRating === star}
+                        aria-label={`${star} star${star === 1 ? "" : "s"} for the courier`}
+                        className={star <= courierRating ? "is-on" : ""}
+                        onClick={() => setCourierRating(star === courierRating ? 0 : star)}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div style={{ marginBottom: "1.25rem", width: "100%" }}>
                 <label htmlFor="review-comment" style={{ fontWeight: "650", display: "block", marginBottom: "0.45rem", fontSize: "0.9rem" }}>
                   Your Review Comments
@@ -520,7 +565,7 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
       {/* The live map only matters until the food arrives. */}
       <div className={`order-actions order-actions--${2 + (isFinished ? 0 : 1) + (isCancellable ? 1 : 0)}`}>
         <Link href={back.href} className="btn-ghost">
-          ← {back.label}
+          ← {tr(back.label)}
         </Link>
         <Link href="/menu" className="btn-primary">
           Order more dishes

@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AuthStatus } from "@/components/AuthStatus";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { useSession, useCart } from "@/components/Providers";
+import { useSession, useCart, useT } from "@/components/Providers";
+import { LanguageToggle } from "@/components/LanguageToggle";
 
 export function Header() {
   const pathname = usePathname();
   const { user } = useSession();
+  const tr = useT();
   const cart = useCart();
   const cartCount = cart?.hydrated && Array.isArray(cart.items)
     ? cart.items.reduce((sum, item) => sum + (item.qty || 0), 0)
@@ -18,6 +20,8 @@ export function Header() {
   const isAdmin = role === "admin";
   const isStaff = role === "staff";
   const isDelivery = role === "delivery";
+  // Staff screens are English only, so the language switch is for customers.
+  const showLanguage = !isAdmin && !isStaff && !isDelivery;
 
   const isActive = (path) => {
     if (!pathname) return false;
@@ -67,7 +71,7 @@ export function Header() {
           {/* Desktop Navigation - Hidden on mobile viewports */}
           <nav aria-label="Main Navigation" className="site-header__nav">
             <Link href="/menu" className={`nav-link ${isActive("/menu") ? "nav-link--active" : ""}`}>
-              Menu
+              {tr("Menu")}
             </Link>
 
             {isAdmin ? (
@@ -109,16 +113,16 @@ export function Header() {
             ) : (
               <>
                 <Link href="/orders" className={`nav-link ${isActive("/orders") ? "nav-link--active" : ""}`}>
-                  Orders
+                  {tr("Orders")}
                 </Link>
                 <Link href="/track" className={`nav-link ${isActive("/track") ? "nav-link--active" : ""}`}>
-                  Live Map
+                  {tr("Live Map")}
                 </Link>
                 <Link href="/favorites" className={`nav-link ${isActive("/favorites") ? "nav-link--active" : ""}`}>
-                  Favorites
+                  {tr("Favorites")}
                 </Link>
                 <Link href="/cart" className={`nav-link nav-link--cart ${isActive("/cart") ? "nav-link--active" : ""}`}>
-                  <span>Cart</span>
+                  <span>{tr("Cart")}</span>
                   <span className="nav-cart-indicator">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                       <circle cx="9" cy="21" r="1" />
@@ -133,6 +137,7 @@ export function Header() {
           </nav>
 
           <div className="site-header__actions">
+            {showLanguage && <LanguageToggle />}
             <ThemeToggle />
             <AuthStatus />
           </div>
@@ -152,7 +157,7 @@ export function Header() {
               <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
             </svg>
           </span>
-          <span className="mobile-nav-label">Menu</span>
+          <span className="mobile-nav-label">{tr("Menu")}</span>
         </Link>
 
         {isStaff ? (
@@ -197,7 +202,7 @@ export function Header() {
                 <polyline points="10 9 9 9 8 9" />
               </svg>
             </span>
-            <span className="mobile-nav-label">Orders</span>
+            <span className="mobile-nav-label">{tr("Orders")}</span>
           </Link>
         )}
 
@@ -223,7 +228,7 @@ export function Header() {
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
             </span>
-            <span className="mobile-nav-label">Favorites</span>
+            <span className="mobile-nav-label">{tr("Favorites")}</span>
           </Link>
         )}
 
@@ -239,7 +244,7 @@ export function Header() {
             </svg>
             {cartCount > 0 && <span className="mobile-cart-badge">{cartCount}</span>}
           </span>
-          <span className="mobile-nav-label">Cart</span>
+          <span className="mobile-nav-label">{tr("Cart")}</span>
         </Link>
       </nav>
     </>

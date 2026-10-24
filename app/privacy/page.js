@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BUSINESS, LEGAL_UPDATED } from "@/lib/business";
+import { isOnlinePaymentEnabled } from "@/lib/payments";
 
 export const metadata = {
   title: "Privacy policy",
@@ -73,6 +74,12 @@ export default function PrivacyPage() {
           <strong>Map and route services</strong> (OpenStreetMap map tiles and a routing service) receive map
           positions to draw the map and estimate the drive time. They do not receive your name or phone number.
         </li>
+        {isOnlinePaymentEnabled() && (
+          <li>
+            <strong>Chapa</strong> processes online payments. You enter your telebirr, CBE Birr or card details on
+            Chapa&apos;s page, not ours; we only receive whether the payment succeeded.
+          </li>
+        )}
         <li><strong>Your browser&apos;s push service</strong> (from Google, Mozilla or Apple) delivers notifications if you turn them on.</li>
       </ul>
 

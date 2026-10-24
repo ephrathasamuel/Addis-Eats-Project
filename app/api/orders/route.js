@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizeEthiopianPhone, parseDeliveryCoordinates, validateOrder } from "@/lib/validation";
-import { createOrder, orderLimitError, priceOrderItems, toOrderClientData } from "@/lib/orders";
+import { createOrder, orderLimitError, priceOrderItems, reserveOrderNumber, toOrderClientData } from "@/lib/orders";
 import { getOrderingStatus } from "@/lib/settings";
 import { getSession } from "@/lib/session";
 import { quoteDelivery } from "@/lib/pricing";
@@ -59,6 +59,7 @@ export async function POST(request) {
   const driveEstimate = deliveryCoordinates ? await estimateDrive(deliveryCoordinates) : null;
   const quote = await quoteDelivery({ location, pinEstimate: driveEstimate });
   const order = createOrder({
+    id: await reserveOrderNumber(),
     userId: user.id,
     name: String(body.name).trim(),
     phone: normalizeEthiopianPhone(body.phone),
