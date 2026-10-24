@@ -1,5 +1,6 @@
 import { getOrderForUser, toOrderTrackingData } from "@/lib/orders";
 import { getSession } from "@/lib/session";
+import { syncData } from "@/lib/datastore";
 
 export const dynamic = "force-dynamic";
 
@@ -18,15 +19,25 @@ export async function GET(request, { params }) {
     start(controller) {
       controller.enqueue(encoder.encode(`data: ${JSON.stringify(toOrderTrackingData(order))}\n\n`));
 
-      const interval = setInterval(() => {
+      let closed = false;
+      const interval = setInterval(async () => {
+        // Load the latest data first: on Vercel the courier's location update
+        // may have been saved by a different server instance.
+        try {
+          await syncData();
+        } catch {}
+        if (closed) return;
         const currentOrder = getOrderForUser(id, user.id, user.role);
 
         if (!currentOrder || currentOrder.status === "delivered" || currentOrder.status === "cancelled") {
-          if (currentOrder) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(toOrderTrackingData(currentOrder))}\n\n`));
-          }
           clearInterval(interval);
-          controller.close();
+          closed = true;
+          try {
+            if (currentOrder) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(toOrderTrackingData(currentOrder))}\n\n`));
+            }
+            controller.close();
+          } catch {}
           return;
         }
 
@@ -35,11 +46,18 @@ export async function GET(request, { params }) {
           serverTime: new Date().toISOString(),
         };
 
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(update)}\n\n`));
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(update)}\n\n`));
+        } catch {
+          // The customer closed the page between ticks.
+          closed = true;
+          clearInterval(interval);
+        }
       }, 5000);
 
       // Clean up when client disconnects
       request.signal.addEventListener("abort", () => {
+        closed = true;
         clearInterval(interval);
       });
     },

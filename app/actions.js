@@ -67,7 +67,7 @@ function notifyCustomer(orderId, title, body) {
   const order = getOrder(orderId);
   if (order) notifyUser(order.userId, { title, body, url: `/orders/${order.id}`, tag: `order-${order.id}` });
 }
-import { flushData, syncData } from "@/lib/datastore";
+import { dropLock, flushData, syncData, takeLock } from "@/lib/datastore";
 import { getKitchenSnapshot } from "@/lib/kitchen";
 
 // ---------------------------------------------------------------------------
@@ -642,6 +642,27 @@ async function changeMyPinActionImpl(formData) {
 // Kitchen
 // ---------------------------------------------------------------------------
 
+// A lock older than this, on an order that is still free, was left behind by
+// a claim that never finished, so it may be taken over.
+const STALE_LOCK_MS = 2 * 60 * 1000;
+
+/**
+ * Takes the database lock for one claim so two servers can't both win it.
+ * Returns "go" (claim it), "taken" (someone else just did) or, when the lock
+ * is new, "go-new" so a failed claim can give the lock back.
+ */
+async function lockClaim(name, owner, stillFree) {
+  const lock = await takeLock(name, owner);
+  if (lock.state === "created") return "go-new";
+  if (lock.state !== "taken") return "go";
+  const age = Date.now() - new Date(lock.at || 0).getTime();
+  if (age > STALE_LOCK_MS && stillFree()) {
+    const forced = await takeLock(name, owner, { force: true });
+    return forced.state === "created" ? "go-new" : "go";
+  }
+  return "taken";
+}
+
 /**
  * Claim one or more waiting tickets.
  * - Personal device: the signed-in cook gets the credit.
@@ -665,7 +686,22 @@ async function kitchenClaimActionImpl({ orderIds, staffId, pin } = {}) {
     return { ok: false, error: "Pick the cook who is claiming these tickets." };
   }
 
-  const results = claimKitchenOrders(ids, { id: cook.id, name: cook.name });
+  // Lock each ticket first; tickets another cook just took are reported as taken.
+  const locks = new Map();
+  for (const id of ids) {
+    locks.set(id, await lockClaim(`kitchen:${id}`, cook.id, () => {
+      const order = getOrder(id);
+      return Boolean(order && order.status === "placed" && !order.kitchenStaffId);
+    }));
+  }
+  const claimable = ids.filter((id) => locks.get(id) !== "taken");
+  const claimed = new Map(claimKitchenOrders(claimable, { id: cook.id, name: cook.name }).map((r) => [r.id, r]));
+  const results = ids.map(
+    (id) => claimed.get(id) || { id, ok: false, error: "Another cook just claimed this ticket." }
+  );
+  for (const result of results) {
+    if (!result.ok && locks.get(result.id) === "go-new") await dropLock(`kitchen:${result.id}`);
+  }
   for (const result of results.filter((r) => r.ok)) {
     notifyCustomer(result.id, "Your food is being cooked", `A cook has started preparing order #${result.id}.`);
   }
@@ -694,6 +730,7 @@ async function kitchenReleaseActionImpl(orderId) {
   const user = await requireRole("staff", "admin");
   if (!user) return { ok: false, error: "Kitchen staff sign-in required." };
   const result = releaseKitchenOrder(orderId);
+  if (result.ok) await dropLock(`kitchen:${orderId}`);
   return { ...result, snapshot: getKitchenSnapshot() };
 }
 
@@ -721,7 +758,15 @@ async function toggleSoldOutActionImpl(dishId) {
 async function claimAndStartDeliveryActionImpl(orderId) {
   const user = await requireRole("delivery");
   if (!user) return { ok: false, error: "A courier account is required to claim orders." };
+  const lock = await lockClaim(`delivery:${orderId}`, user.id, () => {
+    const order = getOrder(orderId);
+    return Boolean(order && order.status === "served" && !order.courierId);
+  });
+  if (lock === "taken") {
+    return { ok: false, error: "Another courier already took this order.", orders: getDeliveryOrdersFor(user.id) };
+  }
   const res = claimAndStartDelivery(orderId, user);
+  if (!res.ok && lock === "go-new") await dropLock(`delivery:${orderId}`);
   if (res.ok) notifyCustomer(orderId, "A courier has your order", `${user.name} is collecting order #${orderId}${user.phone ? ` (${user.phone})` : ""}.`);
   return { ...res, order: undefined, orders: getDeliveryOrdersFor(user.id) };
 }
@@ -738,6 +783,7 @@ async function releaseDeliveryActionImpl(orderId) {
   const user = await requireRole("delivery");
   if (!user) return { ok: false, error: "Only the assigned courier can hand this order back." };
   const res = releaseDelivery(orderId, user.id);
+  if (res.ok) await dropLock(`delivery:${orderId}`);
   return { ...res, orders: getDeliveryOrdersFor(user.id) };
 }
 
