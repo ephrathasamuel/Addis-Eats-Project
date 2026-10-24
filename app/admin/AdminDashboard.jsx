@@ -1,5 +1,6 @@
 "use client";
 
+import { thumbnailSrc } from "@/lib/images";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -533,7 +534,7 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
                         }}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={img.path} alt={img.label} style={{ width: "100%", height: "48px", objectFit: "cover", display: "block" }} />
+                        <img src={thumbnailSrc(img.path, 128)} alt={img.label} style={{ width: "100%", height: "48px", objectFit: "cover", display: "block" }} />
                         <span style={{ fontSize: "0.6rem", display: "block", textAlign: "center", background: "var(--card-bg)", color: "var(--text)" }}>{img.label}</span>
                       </button>
                     ))}
@@ -712,7 +713,7 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
                   <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                     <div className="order-item-frame" style={{ width: "56px", height: "56px" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={dish.image} alt={dish.name} className="order-item-thumb" />
+                      <img src={thumbnailSrc(dish.image)} alt={dish.name} className="order-item-thumb" />
                     </div>
 
                     <div>
@@ -905,7 +906,7 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
                   <div style={{ display: "flex", gap: "0.85rem", alignItems: "center", marginBottom: "0.85rem" }}>
                     <div className="order-item-frame" style={{ width: "60px", height: "60px" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={dish.image || "/images/food/doro-wat.jpg"} alt={dish.name} className="order-item-thumb" />
+                      <img src={thumbnailSrc(dish.image || "/images/food/doro-wat.jpg")} alt={dish.name} className="order-item-thumb" />
                     </div>
                     <div>
                       <strong style={{ fontSize: "1.1rem" }}>{dish.name}</strong>
