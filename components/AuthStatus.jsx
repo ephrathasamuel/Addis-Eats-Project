@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useSession } from "@/components/Providers";
+import { Avatar } from "@/components/Modal";
+import { Tr } from "@/components/Tr";
 
 const ROLE_BADGES = {
   staff: { label: "Kitchen", background: "#2e7d32" },
@@ -9,6 +11,9 @@ const ROLE_BADGES = {
   delivery: { label: "Courier", background: "#2563eb" },
 };
 
+// The account button in the header: "Hi, name" with a round photo on wider
+// screens; on phones only the round photo (or initials), so a long name can't
+// push the header wider than the screen.
 export function AuthStatus() {
   const { status, user } = useSession();
 
@@ -19,7 +24,7 @@ export function AuthStatus() {
   if (!user) {
     return (
       <Link href="/signin" className="btn-ghost">
-        Sign in
+        <Tr text="Sign in" />
       </Link>
     );
   }
@@ -28,16 +33,9 @@ export function AuthStatus() {
   const badge = ROLE_BADGES[user.role];
 
   return (
-    <Link
-      href="/profile"
-      className="btn-ghost"
-      style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
-    >
-      {user.photo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={user.photo} alt="" width={22} height={22} style={{ borderRadius: "50%", objectFit: "cover" }} />
-      ) : null}
-      <span>Hi, {firstName}</span>
+    <Link href="/profile" className="btn-ghost auth-chip" aria-label={`Your profile (${user.name || "User"})`} title={user.name || ""}>
+      <Avatar name={user.name || "User"} photo={user.photo} size={26} />
+      <span className="auth-chip__name">Hi, {firstName}</span>
       {badge && (
         <span
           className="auth-role-badge"

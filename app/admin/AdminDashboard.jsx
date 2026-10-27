@@ -710,14 +710,14 @@ export function AdminDashboard({ initialDishes, initialOrders, ledgerData, ranke
                     opacity: dish.isRemoved ? 0.6 : dish.isSoldOut ? 0.85 : 1,
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                    <div className="order-item-frame" style={{ width: "56px", height: "56px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "1rem", minWidth: 0 }}>
+                    <div className="order-item-frame" style={{ width: "56px", height: "56px", flexShrink: 0 }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={thumbnailSrc(dish.image)} alt={dish.name} className="order-item-thumb" />
                     </div>
 
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.35rem 0.5rem", flexWrap: "wrap" }}>
                         <strong style={{ fontSize: "1.05rem" }}>{dish.name}</strong>
                         <span
                           style={{

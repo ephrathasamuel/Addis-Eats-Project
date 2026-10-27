@@ -4317,3 +4317,85 @@ textarea {
 .lang-toggle:hover {
   border-color: var(--brand);
 }
+
+/* Header account button: round photo + "Hi, name"; long names end in "…" */
+.auth-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 15rem;
+  min-width: 0;
+}
+.auth-chip .avatar {
+  flex-shrink: 0;
+}
+.auth-chip__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  /* Phones: just the round photo or initials */
+  .auth-chip {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    padding: 0 !important;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  .auth-chip .avatar {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 0.78rem !important;
+  }
+  .auth-chip__name,
+  .auth-chip .auth-role-badge {
+    display: none;
+  }
+}
+
+/* Phones: one consistent side margin, less empty space above the menu, and
+   category chips that scroll from edge to edge */
+@media (max-width: 768px) {
+  main {
+    padding: 1rem 1rem 4rem;
+  }
+  .menu-layout {
+    padding: 0 0 2rem;
+    gap: 0.5rem;
+  }
+  .menu-layout .category-bar,
+  .category-bar--home {
+    margin-left: -1rem !important;
+    margin-right: -1rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+  .menu-layout .category-bar {
+    margin-bottom: 0 !important;
+  }
+  .menu-layout h1 {
+    margin-top: 0.25rem;
+  }
+}
+
+/* Small phones (360-380 px): keep the header on one line */
+@media (max-width: 380px) {
+  .site-header__inner {
+    gap: 0.5rem;
+  }
+  .site-header__actions {
+    gap: 0.35rem;
+  }
+  .brand-sub {
+    display: none;
+  }
+  .site-header__actions .btn-ghost:not(.auth-chip) {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
