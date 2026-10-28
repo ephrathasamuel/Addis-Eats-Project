@@ -5,7 +5,7 @@ import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 import { confirmDeliveryAction, submitOrderReviewAction, editOrderReviewAction, cancelOrder } from "@/app/actions";
-import { Avatar } from "@/components/Modal";
+import { Avatar, Toast } from "@/components/Modal";
 import { PushToggle } from "@/components/PushToggle";
 import { useT } from "@/components/Providers";
 
@@ -52,6 +52,12 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
   const [rating, setRating] = useState(current.reviewRating || 5);
   const [comment, setComment] = useState(current.reviewComment || "");
   const [courierRating, setCourierRating] = useState(current.courierRating || 0);
+  const [cookRating, setCookRating] = useState(current.cookRating || 0);
+  // Rating the cook and courier is something the customer opts into.
+  const [ratePeople, setRatePeople] = useState(Boolean(current.courierRating || current.cookRating));
+  const [reviewToast, setReviewToast] = useState("");
+  const cookName = current.kitchenStaffName || "";
+  const courierName = current.courier?.name || current.courierName || "";
   const tr = useT();
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [editingReview, setEditingReview] = useState(false);
@@ -129,7 +135,8 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
     formData.set("orderId", current.id);
     formData.set("rating", String(rating));
     formData.set("comment", comment);
-    if (courierRating) formData.set("courierRating", String(courierRating));
+    if (ratePeople && courierRating) formData.set("courierRating", String(courierRating));
+    if (ratePeople && cookRating) formData.set("cookRating", String(cookRating));
     try {
       const result = isReviewed ? await editOrderReviewAction(formData) : await submitOrderReviewAction(formData);
       if (!result?.ok) {
@@ -146,6 +153,7 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
 
   return (
     <div style={{ maxWidth: "620px", margin: "1rem auto" }}>
+      <Toast message={reviewToast} tone="success" onDone={() => setReviewToast("")} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
         <h1 style={{ margin: 0 }}>Order #{current.id}</h1>
       </div>
@@ -345,6 +353,13 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
                     setRating(current.reviewRating || rating);
                     setComment(current.reviewComment ?? comment);
                     setEditingReview(true);
+                    // Explained once per device, as a pop-up rather than permanent text.
+                    try {
+                      if (!window.localStorage.getItem("addis-review-edit-hint")) {
+                        window.localStorage.setItem("addis-review-edit-hint", "1");
+                        setReviewToast("Your first review stays on the order, shown lighter, under the new one.");
+                      }
+                    } catch {}
                   }}
                 >
                   Edit review
@@ -356,17 +371,17 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
             <form onSubmit={handleReviewSubmit}>
               <div style={{ marginBottom: "0.85rem" }}>
                 <h3 style={{ margin: "0 0 0.35rem", fontSize: "1.15rem" }}>{editingReview ? "Update your review" : "How was your food?"}</h3>
-                <p style={{ margin: 0, fontSize: "0.88rem", color: "var(--muted)" }}>
-                  {editingReview
-                    ? "Your original review stays visible, shown lighter, below the new one."
-                    : "Thank you for confirming receipt! Rate and review your dishes below."}
-                </p>
+                {!editingReview && (
+                  <p style={{ margin: 0, fontSize: "0.88rem", color: "var(--muted)" }}>
+                    Thank you for confirming receipt! Tell us what you thought of the food.
+                  </p>
+                )}
               </div>
 
               {/* Star selector */}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", marginBottom: "1.25rem", gap: "0.35rem" }}>
                 <span style={{ fontSize: "0.95rem", fontWeight: "650", color: "var(--text)", textAlign: "center" }}>
-                  Rating
+                  The food
                 </span>
                 <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "0.4rem" }}>
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -392,24 +407,34 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
                 </div>
               </div>
 
-              {current.courier && (
-                <div className="courier-rating">
-                  <span className="courier-rating__label">Rate your courier, {current.courier.name} (optional)</span>
-                  <div className="courier-rating__stars" role="radiogroup" aria-label="Courier rating">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        role="radio"
-                        aria-checked={courierRating === star}
-                        aria-label={`${star} star${star === 1 ? "" : "s"} for the courier`}
-                        className={star <= courierRating ? "is-on" : ""}
-                        onClick={() => setCourierRating(star === courierRating ? 0 : star)}
-                      >
-                        ★
-                      </button>
-                    ))}
-                  </div>
+              {(cookName || courierName) && !ratePeople && (
+                <button type="button" className="rate-people-toggle" onClick={() => setRatePeople(true)}>
+                  {cookName && courierName
+                    ? `Rate your cook, ${cookName}, and courier, ${courierName}`
+                    : cookName
+                    ? `Rate your cook, ${cookName}`
+                    : `Rate your courier, ${courierName}`}
+                </button>
+              )}
+              {ratePeople && (
+                <div className="people-ratings">
+                  {cookName && (
+                    <PersonStars role="cook" title="Your cook" name={cookName} value={cookRating} onChange={setCookRating} />
+                  )}
+                  {courierName && (
+                    <PersonStars role="courier" title="Your courier" name={courierName} value={courierRating} onChange={setCourierRating} />
+                  )}
+                  <button
+                    type="button"
+                    className="people-ratings__skip"
+                    onClick={() => {
+                      setRatePeople(false);
+                      setCookRating(0);
+                      setCourierRating(0);
+                    }}
+                  >
+                    Skip rating people
+                  </button>
                 </div>
               )}
 
@@ -579,6 +604,33 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
 }
 
 // Shown from the moment a courier accepts the order.
+// Stars for one person (the cook or the courier), clearly labelled with who it is.
+function PersonStars({ role, title, name, value, onChange }) {
+  return (
+    <div className="person-stars">
+      <div className="person-stars__who">
+        <span className="person-stars__title">{title}</span>
+        <strong>{name}</strong>
+      </div>
+      <div className="person-stars__stars" role="radiogroup" aria-label={`${title}: ${name}`}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            role="radio"
+            aria-checked={value === star}
+            aria-label={`${star} star${star === 1 ? "" : "s"} for the ${role}`}
+            className={star <= value ? "is-on" : ""}
+            onClick={() => onChange(star === value ? 0 : star)}
+          >
+            ★
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CourierCard({ courier, delivered }) {
   return (
     <div className="courier-card">

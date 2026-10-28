@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { getSession, KITCHEN_TABLET_ROLE } from "@/lib/session";
 import { getKitchenSnapshot } from "@/lib/kitchen";
 import { KitchenBoard } from "./KitchenBoard";
 
@@ -17,6 +17,7 @@ export default async function KitchenPage() {
   if (!user) {
     redirect("/staff/signin?next=/kitchen");
   }
+  if (user.role === KITCHEN_TABLET_ROLE) redirect("/kitchen/tablet");
 
   if (user.role !== "staff" && user.role !== "admin") {
     return (
@@ -39,11 +40,17 @@ export default async function KitchenPage() {
           <h1>Kitchen</h1>
           <p>Claim tickets, cook, and mark them ready. Updates appear automatically.</p>
         </div>
-        <span className={`role-pill role-pill--${user.role}`}>{user.role === "admin" ? "Admin view" : user.name}</span>
+        <div className="tablet-session">
+          <span className={`role-pill role-pill--${user.role}`}>{user.role === "admin" ? "Admin view" : user.name}</span>
+          {user.role === "admin" && (
+            <Link href="/kitchen/tablet" className="btn-ghost">Kitchen tablet portal</Link>
+          )}
+        </div>
       </div>
       <KitchenBoard
         initialSnapshot={getKitchenSnapshot()}
         viewer={{ id: user.id, name: user.name, role: user.role }}
+        mode={user.role === "admin" ? "overview" : "personal"}
       />
     </div>
   );

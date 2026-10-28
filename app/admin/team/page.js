@@ -30,7 +30,7 @@ function PersonCard({ person, kind, period }) {
           <strong>{person.name}</strong>
           <span>
             {person.removed ? "No longer on staff" : kind === "kitchen" ? "Kitchen" : "Delivery"}
-            {kind === "delivery" && person.rating ? (
+            {person.rating ? (
               <span className="person-card__rating" title={`${person.ratingCount} customer rating${person.ratingCount === 1 ? "" : "s"}`}>
                 {" "}· ★ {person.rating.toFixed(1)}
               </span>
@@ -131,6 +131,7 @@ function LogDay({ day, kind, period, open }) {
               <th>Started</th>
               <th>Ready</th>
               <th>Took</th>
+              <th>Rating</th>
             </tr>
           ) : (
             <tr>
@@ -140,6 +141,7 @@ function LogDay({ day, kind, period, open }) {
               <th>Left</th>
               <th>Arrived</th>
               <th>Took</th>
+              <th>Rating</th>
               <th>Fee</th>
             </tr>
           )}
@@ -160,6 +162,7 @@ function LogDay({ day, kind, period, open }) {
                 <td data-label="Started">{formatTime(entry.start) || "-"}</td>
                 <td data-label="Ready">{formatTime(entry.at)}</td>
                 <td data-label="Took">{entry.minutes ? `${entry.minutes} min` : "-"}</td>
+                <td data-label="Rating">{entry.rating ? `★ ${entry.rating}` : "-"}</td>
               </tr>
             ) : (
               <tr key={entry.orderId}>
@@ -174,6 +177,7 @@ function LogDay({ day, kind, period, open }) {
                 <td data-label="Left">{formatTime(entry.start) || "-"}</td>
                 <td data-label="Arrived">{formatTime(entry.at)}</td>
                 <td data-label="Took">{entry.minutes ? `${entry.minutes} min` : "-"}</td>
+                <td data-label="Rating">{entry.rating ? `★ ${entry.rating}` : "-"}</td>
                 <td data-label="Fee">{entry.fee.toLocaleString()} ETB</td>
               </tr>
             )

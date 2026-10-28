@@ -12,7 +12,7 @@ export function AddToCartButton({ dish, size = "default" }) {
   const { user } = useSession();
   const role = user?.role;
 
-  if (role === "staff" || role === "admin") {
+  if (role === "staff" || role === "admin" || role === "kitchen-tablet") {
     return <SoldOutToggle dish={dish} size={size} />;
   }
   if (role === "delivery") {

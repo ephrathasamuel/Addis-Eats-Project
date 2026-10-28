@@ -8,14 +8,13 @@ import { Avatar, Modal, Toast } from "@/components/Modal";
 import { PushToggle } from "@/components/PushToggle";
 import { useNow, minutesAgo } from "@/hooks/useNow";
 
-const MODE_KEY = "addis-kitchen-mode";
-
 // Kitchen board.
-// - "My device" mode: a cook on their own phone claims tickets for themself.
-// - "Shared tablet" mode: one tablet stays signed in; each cook taps their
-//   name and enters their PIN when claiming, so every ticket is credited to
-//   the right person without anyone signing out and back in.
-export function KitchenBoard({ initialSnapshot, viewer }) {
+// - mode "personal" (/kitchen, a cook's own account): claims are for that cook.
+// - mode "station" (/kitchen/tablet, the kitchen tablet portal): each cook taps
+//   their name and enters their PIN, so every ticket is credited to the right
+//   person without anyone signing out and back in.
+// - mode "overview" (/kitchen for the admin): watch the board, no claiming.
+export function KitchenBoard({ initialSnapshot, viewer, mode = "personal" }) {
   const isAdmin = viewer.role === "admin";
   const { data, mutate } = useSWR("/api/kitchen", fetcher, {
     fallbackData: initialSnapshot,
@@ -26,27 +25,11 @@ export function KitchenBoard({ initialSnapshot, viewer }) {
   const snapshot = data || initialSnapshot;
   const now = useNow(20000);
 
-  const [mode, setMode] = useState(isAdmin ? "station" : "personal");
   const [selected, setSelected] = useState(() => new Set());
   const [busyIds, setBusyIds] = useState(() => new Set());
   const [claimTarget, setClaimTarget] = useState(null); // array of ids awaiting cook + PIN
   const [toast, setToast] = useState(null);
   const [showAvailability, setShowAvailability] = useState(false);
-
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(MODE_KEY);
-      if (saved === "station" || (saved === "personal" && !isAdmin)) setMode(saved);
-    } catch {}
-  }, [isAdmin]);
-
-  function changeMode(next) {
-    setMode(next);
-    setSelected(new Set());
-    try {
-      window.localStorage.setItem(MODE_KEY, next);
-    } catch {}
-  }
 
   // Keep a shared tablet's screen awake while the board is open.
   useEffect(() => {
@@ -192,7 +175,7 @@ export function KitchenBoard({ initialSnapshot, viewer }) {
     }
   }
 
-  const canClaimPersonally = viewer.role === "staff";
+  const canClaimPersonally = mode === "personal" && viewer.role === "staff";
   const leaderboard = [...snapshot.cooks].sort((a, b) => b.today.done - a.today.done || a.name.localeCompare(b.name));
   const soldOutCount = snapshot.dishes.filter((d) => d.isSoldOut).length;
 
@@ -201,17 +184,7 @@ export function KitchenBoard({ initialSnapshot, viewer }) {
       <PushToggle purpose="Get a notification for every new order, even when this page is in the background." />
 
       <div className="board__toolbar">
-        <div className="segmented" role="group" aria-label="Board mode">
-          {!isAdmin && (
-            <button type="button" className={mode === "personal" ? "is-active" : ""} onClick={() => changeMode("personal")}>
-              My device
-            </button>
-          )}
-          <button type="button" className={mode === "station" ? "is-active" : ""} onClick={() => changeMode("station")}>
-            Shared kitchen tablet
-          </button>
-        </div>
-        {viewer.role === "staff" && (
+        {viewer.role === "staff" && mode === "personal" && (
           <a href="/kitchen/history" className="btn-ghost">
             My history
           </a>
@@ -223,13 +196,16 @@ export function KitchenBoard({ initialSnapshot, viewer }) {
 
       {mode === "station" && (
         <p className="board__hint">
-          Shared tablet: tap tickets to select them, press <strong>Claim</strong>, then tap your name and enter your PIN.
+          Kitchen tablet: tap tickets to select them, press <strong>Claim</strong>, then tap your name and enter your PIN.
           Each claim is credited to the cook who enters the PIN, so nobody needs to sign out.
           {snapshot.cooks.length === 0 && " No kitchen staff have been registered yet. An admin can add them under Staff."}
         </p>
       )}
-      {mode === "personal" && !canClaimPersonally && (
-        <p className="board__hint">Switch to shared tablet mode to claim tickets on behalf of a cook.</p>
+      {mode === "overview" && (
+        <p className="board__hint">
+          You&apos;re watching the kitchen. Cooks claim tickets on their own account or on the{" "}
+          <a href="/kitchen/tablet">kitchen tablet</a>.
+        </p>
       )}
 
       <div className="board__layout">

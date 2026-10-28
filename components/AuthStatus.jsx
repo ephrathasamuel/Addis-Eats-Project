@@ -9,6 +9,7 @@ const ROLE_BADGES = {
   staff: { label: "Kitchen", background: "#2e7d32" },
   admin: { label: "Admin", background: "var(--brand)", color: "var(--on-brand)" },
   delivery: { label: "Courier", background: "#2563eb" },
+  "kitchen-tablet": { label: "Tablet", background: "#2e7d32" },
 };
 
 // The account button in the header: "Hi, name" with a round photo on wider
@@ -33,9 +34,9 @@ export function AuthStatus() {
   const badge = ROLE_BADGES[user.role];
 
   return (
-    <Link href="/profile" className="btn-ghost auth-chip" aria-label={`Your profile (${user.name || "User"})`} title={user.name || ""}>
+    <Link href={user.role === "kitchen-tablet" ? "/kitchen/tablet" : "/profile"} className="btn-ghost auth-chip" aria-label={`Your profile (${user.name || "User"})`} title={user.name || ""}>
       <Avatar name={user.name || "User"} photo={user.photo} size={26} />
-      <span className="auth-chip__name">Hi, {firstName}</span>
+      <span className="auth-chip__name">{user.role === "kitchen-tablet" ? "Kitchen tablet" : `Hi, ${firstName}`}</span>
       {badge && (
         <span
           className="auth-role-badge"

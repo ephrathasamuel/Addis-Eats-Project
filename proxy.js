@@ -82,8 +82,16 @@ function copyRefreshCookies(from, to) {
   }
 }
 
+// A kitchen tablet stays on the tablet board (the session itself also limits
+// what it can do; this just keeps people from wandering off it).
+const TABLET_PAGES = ["/kitchen/tablet", "/menu"];
+const isTabletPage = (pathname) => TABLET_PAGES.some((area) => pathname === area || pathname.startsWith(`${area}/`));
+
 export async function proxy(request) {
   const pathname = request.nextUrl.pathname;
+  if (request.cookies.get("addis_kitchen_tablet")?.value === "1" && !pathname.startsWith("/api/") && !isTabletPage(pathname)) {
+    return NextResponse.redirect(new URL("/kitchen/tablet", request.url));
+  }
   const isApiRequest = pathname.startsWith("/api/");
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   // API responses are data, not pages: no policy needed there.
@@ -97,7 +105,8 @@ export async function proxy(request) {
   const config = getSupabaseConfig();
   // Only checks that some session cookie exists; pages and actions verify it.
   const hasLocalSession = request.cookies.has("addis_session");
-  const isOptionalProfilePage = pathname === "/profile";
+  // The tablet page shows its own sign-in when the device isn't set up yet.
+  const isOptionalProfilePage = pathname === "/profile" || pathname === "/kitchen/tablet";
 
   if (!config) {
     if (!hasLocalSession && !isApiRequest && !isOptionalProfilePage) {

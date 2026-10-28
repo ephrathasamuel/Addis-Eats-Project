@@ -68,7 +68,7 @@ export default async function PersonPage({ params, searchParams }) {
               {p.rank ? `Rank ${p.rank} of ${p.of}` : "No work yet"}
               {p.avgMinutes ? ` · avg ${p.avgMinutes} min` : ""}
               {!kitchen && p.fees ? ` · ${p.fees.toLocaleString()} ETB` : ""}
-              {!kitchen && p.rating ? ` · ★ ${p.rating.toFixed(1)} from customers` : ""}
+              {p.rating ? ` · ★ ${p.rating.toFixed(1)} from ${p.ratingCount} customer${p.ratingCount === 1 ? "" : "s"}` : ""}
               {kitchen && p.items ? ` · ${p.items} dishes` : ""}
             </span>
           </div>

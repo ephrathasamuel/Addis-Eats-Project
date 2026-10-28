@@ -4,6 +4,18 @@ import Link from "next/link";
 import { cancelOrder } from "@/app/actions";
 import { useState } from "react";
 
+
+// Readable status names for the badge.
+const STATUS_LABELS = {
+  "awaiting-payment": "Awaiting payment",
+  placed: "Placed",
+  preparing: "Cooking",
+  served: "Ready",
+  "on-the-way": "On the way",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+};
+
 export function OrderList({ orders }) {
   const [orderState, setOrderState] = useState(orders);
   const [cancellingId, setCancellingId] = useState(null);
@@ -51,14 +63,15 @@ export function OrderList({ orders }) {
               boxShadow: "0 2px 8px var(--shadow-color)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+            <div className="order-card__head">
               <div>
                 <h3 style={{ margin: 0, fontSize: "1.15rem" }}>Order #{order.id}</h3>
                 <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-                  {new Date(order.createdAt).toLocaleString()}
+                  {new Date(order.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                 </span>
               </div>
               <span
+                className="order-card__status"
                 style={{
                   fontSize: "0.8rem",
                   fontWeight: "700",
@@ -80,7 +93,7 @@ export function OrderList({ orders }) {
                       : "var(--brand-dark)",
                 }}
               >
-                {order.status}
+                {STATUS_LABELS[order.status] || order.status}
               </span>
             </div>
 
@@ -128,23 +141,13 @@ export function OrderList({ orders }) {
               })}
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                paddingTop: "0.75rem",
-                borderTop: "1px solid var(--border)",
-              }}
-            >
-              <div>
-                <span style={{ fontSize: "0.9rem", color: "var(--muted)" }}>Total Paid: </span>
-                <strong style={{ fontSize: "1.1rem", color: "var(--brand-dark)" }}>
-                  {order.total} ETB
-                </strong>
+            <div className="order-card__footer">
+              <div className="order-card__total">
+                <span>Total</span>
+                <strong>{order.total} ETB</strong>
               </div>
 
-              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+              <div className="order-card__actions">
                 <Link href={`/orders/${order.id}`} className="btn-ghost" style={{ fontSize: "0.85rem" }}>
                   Status
                 </Link>

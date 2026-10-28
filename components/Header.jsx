@@ -18,7 +18,10 @@ export function Header() {
 
   const role = user?.role || null;
   const isAdmin = role === "admin";
-  const isStaff = role === "staff";
+  // The kitchen tablet portal gets the kitchen cook's navigation, pointed at the tablet board.
+  const isTablet = role === "kitchen-tablet";
+  const isStaff = role === "staff" || isTablet;
+  const kitchenHref = isTablet ? "/kitchen/tablet" : "/kitchen";
   const isDelivery = role === "delivery";
   // Staff screens are English only, so the language switch is for customers.
   const showLanguage = !isAdmin && !isStaff && !isDelivery;
@@ -106,7 +109,7 @@ export function Header() {
               </>
             ) : isStaff ? (
               <>
-                <Link href="/kitchen" className={`nav-link ${isActive("/kitchen") ? "nav-link--active" : ""}`}>
+                <Link href={kitchenHref} className={`nav-link ${isActive("/kitchen") ? "nav-link--active" : ""}`}>
                   Kitchen
                 </Link>
               </>
@@ -162,7 +165,7 @@ export function Header() {
 
         {isStaff ? (
           <Link
-            href="/kitchen"
+            href={kitchenHref}
             className={`mobile-nav-item ${isActive("/kitchen") ? "mobile-nav-item--active" : ""}`}
           >
             <span className="mobile-nav-icon" aria-hidden="true">
@@ -206,6 +209,8 @@ export function Header() {
           </Link>
         )}
 
+{!isTablet && (
+          <>
         {isAdmin ? (
           <Link
             href="/admin"
@@ -246,6 +251,8 @@ export function Header() {
           </span>
           <span className="mobile-nav-label">{tr("Cart")}</span>
         </Link>
+          </>
+        )}
       </nav>
     </>
   );

@@ -36,6 +36,7 @@ import {
   anonymizeCustomerOrders,
   hasActiveOrder,
   setCourierRating,
+  setCookRating,
   addPaymentReference,
   discardUnstartedOrder,
   reserveOrderNumber,
@@ -44,7 +45,7 @@ import {
   reportOrderProblem,
   resolveOrderProblem,
 } from "@/lib/orders";
-import { getSession, createSession, clearSession, toSessionUser } from "@/lib/session";
+import { getSession, createSession, clearSession, toSessionUser, KITCHEN_TABLET_ROLE } from "@/lib/session";
 import {
   authenticate,
   changeOwnPassword,
@@ -94,7 +95,7 @@ function safePath(value, fallback) {
     : fallback;
 }
 
-const ROLE_HOME = { admin: "/admin", staff: "/kitchen", delivery: "/delivery", customer: "/menu" };
+const ROLE_HOME = { admin: "/admin", staff: "/kitchen", delivery: "/delivery", customer: "/menu", "kitchen-tablet": "/kitchen/tablet" };
 const ROLE_AREAS = {
   admin: ["/admin", "/kitchen", "/delivery", "/dashboard", "/track", "/orders", "/profile", "/menu"],
   staff: ["/kitchen", "/profile", "/menu"],
@@ -316,11 +317,19 @@ async function confirmDeliveryActionImpl(orderId) {
   return { ok: true };
 }
 
-// Optional star rating for the courier, sent with the food review.
-function applyCourierRating(orderId, userId, value) {
-  if (value === null || value === undefined || value === "" || value === "0") return null;
-  const result = setCourierRating(String(orderId), userId, value);
-  return result.ok ? null : result.error;
+// Star ratings for the cook and the courier, sent with the food review when
+// the customer chooses to rate them.
+function applyCourierRating(orderId, userId, value, cookValue) {
+  const given = (v) => !(v === null || v === undefined || v === "" || v === "0");
+  if (given(value)) {
+    const result = setCourierRating(String(orderId), userId, value);
+    if (!result.ok) return result.error;
+  }
+  if (given(cookValue)) {
+    const result = setCookRating(String(orderId), userId, cookValue);
+    if (!result.ok) return result.error;
+  }
+  return null;
 }
 
 async function submitOrderReviewActionImpl(formData) {
@@ -348,7 +357,7 @@ async function submitOrderReviewActionImpl(formData) {
     return { ok: false, status: 400, error: "Review comments must be 1000 characters or fewer." };
   }
 
-  const courierRatingError = applyCourierRating(orderId, user.id, formData.get("courierRating"));
+  const courierRatingError = applyCourierRating(orderId, user.id, formData.get("courierRating"), formData.get("cookRating"));
   if (courierRatingError) return { ok: false, status: 400, error: courierRatingError };
   const updated = submitOrderReview(orderId, parsedRating, String(comment || "").trim());
   if (!updated) return { ok: false, status: 409, error: "Reviews are available once after the order is delivered." };
@@ -373,7 +382,7 @@ async function editOrderReviewActionImpl(formData) {
   const comment = String(formData.get("comment") || "").trim();
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { ok: false, error: "Rating must be from 1 to 5 stars." };
   if (comment.length > 1000) return { ok: false, error: "Review comments must be 1000 characters or fewer." };
-  const courierRatingError = applyCourierRating(orderId, user.id, formData.get("courierRating"));
+  const courierRatingError = applyCourierRating(orderId, user.id, formData.get("courierRating"), formData.get("cookRating"));
   if (courierRatingError) return { ok: false, error: courierRatingError };
   const result = editOrderReview(orderId, rating, comment);
   if (!result.ok) return result;
@@ -599,7 +608,27 @@ async function signUpImpl(formData) {
 async function signOutImpl() {
   const user = await getSession();
   await clearSession();
+  if (user?.role === KITCHEN_TABLET_ROLE) redirect("/kitchen/tablet");
   redirect(user && user.role !== "customer" ? "/staff/signin" : "/");
+}
+
+/**
+ * Opens the kitchen tablet portal on this device with a cook's or the
+ * admin's own email and password. The device then gets a tablet session:
+ * only the kitchen board, and every claim needs the cook's PIN.
+ */
+async function openKitchenTabletImpl(formData) {
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
+  if (!email || !password) return { ok: false, error: "Enter your email and password." };
+  const local = findAccountByEmail(email);
+  if (!local || !["staff", "admin"].includes(local.role)) {
+    return { ok: false, error: "Only kitchen staff or the admin can open the kitchen tablet." };
+  }
+  const result = authenticate(email, password);
+  if (!result.ok) return { ok: false, error: result.error };
+  await createSession(result.account, { kitchenTablet: true });
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -751,20 +780,26 @@ async function lockClaim(name, owner, stillFree) {
  *   gets the credit, so nobody has to sign out and back in.
  */
 async function kitchenClaimActionImpl({ orderIds, staffId, pin } = {}) {
-  const user = await requireRole("staff", "admin");
+  const user = await requireRole("staff", "admin", KITCHEN_TABLET_ROLE);
   if (!user) return { ok: false, error: "Kitchen staff sign-in required." };
   const ids = Array.isArray(orderIds) ? orderIds.slice(0, 50).map(String) : [];
   if (ids.length === 0) return { ok: false, error: "Select at least one ticket." };
 
+  // The kitchen tablet credits whoever enters their PIN. A cook's own account
+  // only ever claims for that cook, so nobody can act as another chef from it.
   let cook;
-  if (staffId) {
+  if (user.role === KITCHEN_TABLET_ROLE) {
+    if (!staffId) return { ok: false, error: "Pick the cook who is claiming these tickets." };
     const check = verifyPin(staffId, pin);
     if (!check.ok) return { ok: false, error: check.error, pinError: true };
     cook = check.account;
   } else if (user.role === "staff") {
+    if (staffId && String(staffId) !== String(user.id)) {
+      return { ok: false, error: "You can only claim tickets for yourself here. Use the kitchen tablet for other cooks." };
+    }
     cook = getAccount(user.id) || { id: user.id, name: user.name };
   } else {
-    return { ok: false, error: "Pick the cook who is claiming these tickets." };
+    return { ok: false, error: "Tickets are claimed by cooks, on their own account or on the kitchen tablet." };
   }
 
   // Lock each ticket first; tickets another cook just took are reported as taken.
@@ -790,7 +825,7 @@ async function kitchenClaimActionImpl({ orderIds, staffId, pin } = {}) {
 }
 
 async function kitchenReadyActionImpl(orderIds) {
-  const user = await requireRole("staff", "admin");
+  const user = await requireRole("staff", "admin", KITCHEN_TABLET_ROLE);
   if (!user) return { ok: false, error: "Kitchen staff sign-in required." };
   const ids = (Array.isArray(orderIds) ? orderIds : [orderIds]).slice(0, 50).map(String);
   const results = markKitchenReady(ids);
@@ -808,7 +843,7 @@ async function kitchenReadyActionImpl(orderIds) {
 }
 
 async function kitchenReleaseActionImpl(orderId) {
-  const user = await requireRole("staff", "admin");
+  const user = await requireRole("staff", "admin", KITCHEN_TABLET_ROLE);
   if (!user) return { ok: false, error: "Kitchen staff sign-in required." };
   const result = releaseKitchenOrder(orderId);
   if (result.ok) await dropLock(`kitchen:${orderId}`);
@@ -819,7 +854,7 @@ async function kitchenReleaseActionImpl(orderId) {
  * Kitchen staff and admins can mark dishes sold out / available.
  */
 async function setDishSoldOutActionImpl(dishId, isSoldOut) {
-  const user = await requireRole("staff", "admin");
+  const user = await requireRole("staff", "admin", KITCHEN_TABLET_ROLE);
   if (!user) return { ok: false, error: "Only kitchen staff or admins can change availability." };
   const dish = setDishSoldOut(String(dishId), typeof isSoldOut === "boolean" ? isSoldOut : undefined);
   if (!dish) return { ok: false, error: "Dish not found." };
@@ -1282,4 +1317,8 @@ export async function retryOrderPaymentAction(...args) {
 
 export async function payCashInsteadAction(...args) {
   return withData(() => payCashInsteadActionImpl(...args));
+}
+
+export async function openKitchenTablet(...args) {
+  return withData(() => openKitchenTabletImpl(...args));
 }

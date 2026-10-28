@@ -4196,11 +4196,33 @@ textarea {
   font-weight: 650;
 }
 .delivery-code input {
-  width: 6.5rem;
+  width: 7.5rem;
+  height: 44px;
+  padding: 0 0.75rem 0 1rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
   text-align: center;
   font-size: 1.15rem;
-  letter-spacing: 0.25em;
+  font-weight: 700;
+  letter-spacing: 0.3em;
   font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 1px 3px var(--shadow-color);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.delivery-code input::placeholder {
+  color: var(--muted);
+  opacity: 0.5;
+}
+.delivery-code input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent);
+}
+.delivery-code .btn-success {
+  border-radius: 999px;
+  min-height: 44px;
 }
 
 /* Optional courier stars in the review form */
@@ -4413,4 +4435,140 @@ textarea {
   .order-status-eta {
     text-align: left;
   }
+}
+
+/* Order history card: header and footer that stay tidy on phones */
+.order-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.order-card__status {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.order-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+.order-card__total {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+.order-card__total span {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.order-card__total strong {
+  font-size: 1.15rem;
+  color: var(--brand-dark);
+}
+.order-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+.order-card__actions .btn-ghost,
+.order-card__actions button {
+  white-space: nowrap;
+}
+
+/* Kitchen tablet portal */
+.tablet-session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.tablet-signin {
+  max-width: 440px;
+  margin: 2rem auto;
+}
+.tablet-signin__note {
+  padding: 0.6rem 0.85rem;
+  border-radius: 12px;
+  background: var(--brand-light);
+  font-size: 0.9rem;
+}
+
+/* Review form: optional ratings for the cook and courier, by name */
+.rate-people-toggle {
+  display: block;
+  width: 100%;
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  border: 1.5px dashed var(--border);
+  background: transparent;
+  color: var(--brand-dark);
+  font-weight: 650;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+.rate-people-toggle:hover {
+  border-color: var(--brand);
+  background: var(--brand-light);
+}
+.rate-people-toggle::before {
+  content: "+ ";
+}
+.people-ratings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  background: var(--brand-light);
+}
+.person-stars {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+.person-stars__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.person-stars__title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.person-stars__stars button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0 0.12rem;
+  color: var(--border);
+}
+.person-stars__stars button.is-on {
+  color: #f59e0b;
+}
+.people-ratings__skip {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
 }

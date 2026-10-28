@@ -286,7 +286,7 @@ export default function DeliveryMap({ orderId, initialOrder, viewerRole = "custo
               <h4 style={{ margin: "0 0 0.5rem", fontSize: "0.95rem" }}>Ordered Items</h4>
               {order.items?.map((item, idx) => (
                 <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", color: "var(--muted)" }}>
-                  <span>{item.name} × {item.qty}</span>
+                  <span>{item.name} ({item.qty})</span>
                   <span style={{ color: "var(--text)" }}>{etb.format(item.price * item.qty)}</span>
                 </div>
               ))}
