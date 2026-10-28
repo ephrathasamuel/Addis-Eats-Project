@@ -4356,11 +4356,11 @@ textarea {
   }
 }
 
-/* Phones: one consistent side margin, less empty space above the menu, and
-   category chips that scroll from edge to edge */
+/* Phones: less empty space above the menu, and category chips that scroll
+   from edge to edge (the page keeps its usual 1.5rem side margin) */
 @media (max-width: 768px) {
   main {
-    padding: 1rem 1rem 4rem;
+    padding-top: 1rem;
   }
   .menu-layout {
     padding: 0 0 2rem;
@@ -4368,10 +4368,10 @@ textarea {
   }
   .menu-layout .category-bar,
   .category-bar--home {
-    margin-left: -1rem !important;
-    margin-right: -1rem !important;
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
+    margin-left: -1.5rem !important;
+    margin-right: -1.5rem !important;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
     width: auto !important;
     max-width: none !important;
   }
@@ -4397,5 +4397,20 @@ textarea {
   .site-header__actions .btn-ghost:not(.auth-chip) {
     padding-left: 0.75rem;
     padding-right: 0.75rem;
+  }
+}
+
+/* Order page status card: estimated time on the right on wide screens,
+   under the status (same alignment) on phones */
+.order-status-eta {
+  text-align: right;
+}
+@media (max-width: 600px) {
+  .order-status-card {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+  .order-status-eta {
+    text-align: left;
   }
 }

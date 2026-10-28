@@ -148,27 +148,10 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
     <div style={{ maxWidth: "620px", margin: "1rem auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
         <h1 style={{ margin: 0 }}>Order #{current.id}</h1>
-        {!isFinished && (
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span
-              style={{
-                display: "inline-block",
-                width: "10px",
-                height: "10px",
-                borderRadius: "50%",
-                backgroundColor: "var(--brand)",
-                boxShadow: "0 0 8px currentColor",
-                animation: "pulse 2s infinite",
-              }}
-            />
-            <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-              Live polling (every 5s)
-            </span>
-          </div>
-        )}
       </div>
 
       <div
+        className="order-status-card"
         style={{
           padding: "1.25rem 1.5rem",
           borderRadius: "20px",
@@ -192,7 +175,7 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
         </div>
 
         {current.status !== "delivered" && current.status !== "cancelled" && (
-          <div style={{ textAlign: "right" }}>
+          <div className="order-status-eta">
             <div style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" }}>
               {current.status === "on-the-way" ? "Drive time" : "Estimated time"}
             </div>
