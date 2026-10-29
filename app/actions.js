@@ -40,6 +40,7 @@ import {
   addPaymentReference,
   discardUnstartedOrder,
   reserveOrderNumber,
+  setPaymentCheckoutUrl,
   switchOrderToCash,
   orderLimitError,
   reportOrderProblem,
@@ -243,13 +244,15 @@ async function beginOnlinePayment(order, email) {
   const origin = await getOrigin();
   const reference = newPaymentReference(order.id);
   addPaymentReference(order.id, reference);
-  return startPayment({
+  const started = await startPayment({
     order,
     reference,
     email,
     returnUrl: `${origin}/checkout/payment?order=${order.id}`,
     callbackUrl: `${origin}/api/payments/chapa`,
   });
+  if (started.ok) setPaymentCheckoutUrl(order.id, started.checkoutUrl);
+  return started;
 }
 
 async function retryOrderPaymentActionImpl(orderId) {

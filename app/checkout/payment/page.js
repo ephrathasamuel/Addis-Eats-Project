@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { getOrderForUser } from "@/lib/orders";
 import { confirmOrderPayment } from "@/lib/order-payment";
 import { PaymentPending } from "./PaymentPending";
+import { isChapaCheckoutUrl } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,11 @@ export default async function PaymentReturnPage({ searchParams }) {
           <Link href="/menu" className="btn-primary">Back to the menu</Link>
         </section>
       ) : (
-        <PaymentPending orderId={order.id} total={order.total} />
+        <PaymentPending
+          orderId={order.id}
+          total={order.total}
+          checkoutUrl={isChapaCheckoutUrl(order.payment?.checkoutUrl) ? order.payment.checkoutUrl : ""}
+        />
       )}
     </div>
   );

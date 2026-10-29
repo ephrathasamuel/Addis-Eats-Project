@@ -15,6 +15,26 @@ function validatePhone(value) {
   return null;
 }
 
+// Where each kind of problem is on the form, top to bottom, so the customer can
+// be taken straight to the first thing that needs fixing.
+const FIELD_ORDER = [
+  ["name", "#name"],
+  ["phone", "#phone"],
+  ["location", "#custom-location, #location-select"],
+  ["addressDetails", "#address-details"],
+  ["deliveryCoordinates", "#location-share"],
+];
+
+function goToFirstProblem(errors, fallbackSelector) {
+  requestAnimationFrame(() => {
+    const first = FIELD_ORDER.find(([key]) => errors?.[key]);
+    const target = document.querySelector(first ? first[1] : fallbackSelector);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (typeof target.focus === "function") target.focus({ preventScroll: true });
+  });
+}
+
 export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", kitchenEstimate, areaFees = {}, pricing, onlinePayment = null }) {
   const router = useRouter();
   const [paymentMethod, setPaymentMethod] = useState("cash");
@@ -56,6 +76,7 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
     if (isOther && !customLocation.trim()) nextErrors.location = "Please specify your neighborhood or landmark";
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
+      goToFirstProblem(nextErrors);
       return;
     }
 
@@ -66,8 +87,9 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
       // returns when something needs fixing.
       const result = await placeOrder(formData);
       if (result?.ok && result.payUrl) {
-        // Off to Chapa's payment page; it sends the customer back afterwards.
-        window.location.assign(result.payUrl);
+        // Chapa's payment page opens inside our payment step, which moves on
+        // to the confirmation by itself once Chapa confirms the payment.
+        window.location.assign(`/checkout/payment?order=${result.orderId}`);
         return;
       }
       if (result && !result.ok) {
@@ -76,6 +98,7 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
           return;
         }
         setErrors(result.fieldErrors || {});
+        goToFirstProblem(result.fieldErrors || {}, "#order-form-error");
         setFormError(result.error || (result.fieldErrors ? "Please fix the highlighted fields." : "Could not place the order."));
       }
     });
@@ -217,7 +240,7 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
         {errors.addressDetails && <p className="field-error" role="alert">{errors.addressDetails}</p>}
       </div>
 
-      <div className="location-attach">
+      <div className="location-attach" id="location-share" tabIndex={-1}>
         <div className="location-attach__text">
           <strong>{tr("Attach your exact location")}</strong>
           <span className="optional-tag">Optional</span>
@@ -331,7 +354,11 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
         </fieldset>
       )}
 
-      {formError && <p className="field-error" role="alert" style={{ marginBottom: "0.75rem" }}>{formError}</p>}
+      {formError && (
+        <p id="order-form-error" className="field-error" role="alert" tabIndex={-1} style={{ marginBottom: "0.75rem" }}>
+          {formError}
+        </p>
+      )}
 
       <button type="submit" disabled={pending} className="primary btn-block checkout-submit-btn" aria-busy={pending}>
         {pending
