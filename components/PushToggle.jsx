@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-function urlBase64ToUint8Array(base64) {
-  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
-  const raw = atob((base64 + padding).replace(/-/g, "+").replace(/_/g, "/"));
-  return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)));
-}
+import { clearOptOut, disablePush, enablePush } from "@/lib/push-client";
 
 const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
 const isStandalone = () => window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone;
@@ -39,25 +34,8 @@ export function PushToggle({ purpose = "Get a notification when your order statu
     setError("");
     setState("busy");
     try {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        setState(permission === "denied" ? "denied" : "off");
-        return;
-      }
-      const { publicKey } = await fetch("/api/push").then((response) => response.json());
-      if (!publicKey) throw new Error("Notifications aren't set up on the server yet.");
-      const registration = await navigator.serviceWorker.register("/sw.js");
-      await navigator.serviceWorker.ready;
-      const subscription =
-        (await registration.pushManager.getSubscription()) ||
-        (await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) }));
-      const response = await fetch("/api/push", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscription }),
-      });
-      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || "Could not turn on notifications.");
-      setState("on");
+      clearOptOut();
+      setState(await enablePush());
     } catch (err) {
       setError(err.message || "Could not turn on notifications.");
       setState("off");
@@ -67,16 +45,7 @@ export function PushToggle({ purpose = "Get a notification when your order statu
   async function turnOff() {
     setState("busy");
     try {
-      const registration = await navigator.serviceWorker.getRegistration();
-      const subscription = await registration?.pushManager.getSubscription();
-      if (subscription) {
-        await fetch("/api/push", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: subscription.endpoint }),
-        });
-        await subscription.unsubscribe();
-      }
+      await disablePush();
     } finally {
       setState("off");
     }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { estimateDelivery, placeOrder } from "@/app/actions";
 import { DELIVERY_LOCATIONS, isInAddis } from "@/lib/locations";
 import { useT } from "@/components/Providers";
+import { askOnce } from "@/lib/push-client";
 
 const PHONE_RE = /^(?:\+251|0)[79]\d{8}$/;
 
@@ -68,6 +69,9 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
   function handleSubmit(event) {
     event.preventDefault();
     if (pending) return;
+    // The tap on "Place order" is when the phone may ask once to allow
+    // notifications (cooking, on the way, delivered).
+    askOnce();
 
     const nextErrors = {};
     if (name.trim().length < 2) nextErrors.name = "Name is required";

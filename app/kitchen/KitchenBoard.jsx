@@ -5,7 +5,6 @@ import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { kitchenClaimAction, kitchenReadyAction, kitchenReleaseAction, setDishSoldOutAction } from "@/app/actions";
 import { Avatar, Modal, Toast } from "@/components/Modal";
-import { PushToggle } from "@/components/PushToggle";
 import { useNow, minutesAgo } from "@/hooks/useNow";
 
 // Kitchen board.
@@ -181,7 +180,6 @@ export function KitchenBoard({ initialSnapshot, viewer, mode = "personal" }) {
 
   return (
     <div className="board">
-      <PushToggle purpose="Get a notification for every new order, even when this page is in the background." />
 
       <div className="board__toolbar">
         {viewer.role === "staff" && mode === "personal" && (

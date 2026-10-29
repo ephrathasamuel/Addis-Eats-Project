@@ -3,7 +3,6 @@ import { getSession } from "@/lib/session";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ClearCartOnMount } from "@/components/ClearCartOnMount";
-import { PushToggle } from "@/components/PushToggle";
 import { Tr } from "@/components/Tr";
 
 export const dynamic = "force-dynamic";
@@ -83,7 +82,6 @@ export default async function ConfirmationPage({ searchParams }) {
           <p>
             Your order page updates live, and once your courier sets off you can follow them on the map.
           </p>
-          <PushToggle purpose="Get a notification when your food is cooking, picked up, on the way and delivered." />
         </div>
 
         {/* Responsive Touch-Friendly Actions */}

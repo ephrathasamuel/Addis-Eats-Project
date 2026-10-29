@@ -6,7 +6,6 @@ import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { claimAndStartDeliveryAction, completeDeliveryAction, releaseDeliveryAction, startDeliveryJourneyAction } from "@/app/actions";
 import { Toast } from "@/components/Modal";
-import { PushToggle } from "@/components/PushToggle";
 import { useNow, minutesAgo } from "@/hooks/useNow";
 
 // Courier dispatch board. Every courier sees the same live pool of orders the
@@ -150,7 +149,6 @@ export function DeliveryBoard({ initialOrders, user }) {
 
   return (
     <div className="board">
-      {!isAdmin && <PushToggle purpose="Get a notification as soon as an order is ready for pickup." />}
       {!isAdmin && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.75rem" }}>
           <Link href="/delivery/history" className="btn-ghost">

@@ -6,7 +6,6 @@ import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 import { confirmDeliveryAction, submitOrderReviewAction, editOrderReviewAction, cancelOrder } from "@/app/actions";
 import { Avatar, Toast } from "@/components/Modal";
-import { PushToggle } from "@/components/PushToggle";
 import { useT } from "@/components/Providers";
 
 export function OrderStatus({ id, initial, back = { href: "/orders", label: "Back to order history" } }) {
@@ -210,12 +209,6 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
           <span className="delivery-code-card__label">{tr("Your delivery code")}</span>
           <strong className="delivery-code-card__code">{current.deliveryCode}</strong>
           <span className="text-muted">{tr("Tell this code to your courier when your food arrives. Don't share it before then.")}</span>
-        </div>
-      )}
-
-      {!isFinished && (
-        <div style={{ marginBottom: "1.25rem" }}>
-          <PushToggle purpose="Get a notification when your food is cooking, picked up, on the way and delivered." />
         </div>
       )}
 

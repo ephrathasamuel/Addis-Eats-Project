@@ -6,6 +6,7 @@ import { Providers } from "@/components/Providers";
 import { WelcomeNotice } from "@/components/WelcomeNotice";
 import { HideOnStaffSignIn } from "@/components/HideOnStaffSignIn";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { AutoPush } from "@/components/AutoPush";
 import { headers } from "next/headers";
 import { getSession } from "@/lib/session";
 import { getLang } from "@/lib/lang-server";
@@ -83,6 +84,7 @@ export default async function RootLayout({ children }) {
             <Footer lang={lang} />
           </HideOnStaffSignIn>
           <ScrollToTop />
+          <AutoPush />
         </Providers>
       </body>
     </html>

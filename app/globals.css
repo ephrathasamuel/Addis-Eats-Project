@@ -4690,3 +4690,11 @@ textarea {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* Profile: notifications live in their own fold-out section */
+.notifications-panel .push-toggle {
+  margin: 0;
+  border: none;
+  padding: 0;
+  background: transparent;
+}

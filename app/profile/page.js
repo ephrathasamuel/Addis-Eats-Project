@@ -5,6 +5,7 @@ import { signOut } from "@/app/actions";
 import { Avatar } from "@/components/Modal";
 import { ChangePasswordForm, ChangePinForm, StaffProfileForm } from "./ProfileSettings";
 import { DeleteAccount } from "./DeleteAccount";
+import { PushToggle } from "@/components/PushToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,20 @@ export default async function ProfilePage() {
 
       {isStaff && <StaffProfileForm user={{ name: user.name, phone: user.phone, photo: user.photo, role: user.role }} />}
       {user.role === "staff" && <ChangePinForm />}
+      <details className="card-panel collapsible-panel notifications-panel">
+        <summary>Notifications</summary>
+        <PushToggle
+          purpose={
+            user.role === "staff"
+              ? "Get a notification for every new order, even when the kitchen board is closed."
+              : user.role === "delivery"
+              ? "Get a notification as soon as an order is ready for pickup."
+              : user.role === "admin"
+              ? "Get a notification when a customer reports a problem."
+              : "Get a notification when your food is being cooked, picked up, on the way and delivered."
+          }
+        />
+      </details>
       <ChangePasswordForm hasPassword={hasPassword} canEmailReset={user.provider === "supabase"} />
 
       {user.role === "customer" && <CustomerOrders userId={user.id} />}
