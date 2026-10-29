@@ -52,7 +52,8 @@ export function Header() {
 
   // The staff sign-in page shows only the logo: no customer links, cart,
   // sign-in button or mobile tab bar.
-  if (pathname === "/staff/signin") {
+  // The kitchen tablet's sign-in screen looks the same (before the tablet is opened).
+  if (pathname === "/staff/signin" || (pathname === "/kitchen/tablet" && !isTablet)) {
     return (
       <header className="site-header">
         <div className="site-header__inner">

@@ -18,6 +18,7 @@ function validatePhone(value) {
 export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", kitchenEstimate, areaFees = {}, pricing, onlinePayment = null }) {
   const router = useRouter();
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [showFeeInfo, setShowFeeInfo] = useState(false);
   const tr = useT();
   const [name, setName] = useState(initialName);
   const [phone, setPhone] = useState("");
@@ -265,7 +266,7 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
           </div>
         )}
         <div className="checkout-fee-box__row">
-          <span>Drive time once the food is ready</span>
+          <span>Drive time</span>
           <strong>
             {deliveryCoordinates && drive
               ? `about ${drive.estimate.minutes} min`
@@ -274,7 +275,17 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
               : matchedLocation.driveTime}
           </strong>
         </div>
-        <p>
+        <button
+          type="button"
+          className="fee-info-toggle"
+          aria-expanded={showFeeInfo}
+          onClick={() => setShowFeeInfo((open) => !open)}
+        >
+          How is this worked out?
+        </button>
+        {showFeeInfo && (
+          <div className="fee-info-popover" role="note">
+            <p>
           {kitchenEstimate?.basis === "dishes"
             ? `Cooking time is the average our kitchen team has taken for these dishes. `
             : kitchenEstimate?.basis === "kitchen"
@@ -284,7 +295,12 @@ export default function OrderForm({ itemsRaw, foodSubtotal, initialName = "", ki
             ? `${drive.text}.`
             : "Fee and drive time are for the centre of your neighborhood. Share your location above for your exact address."}
           {pricing && ` Delivery is ${pricing.baseFee} ETB for the first ${pricing.baseKm} km, then ${pricing.perKm} ETB per extra km.`}
-        </p>
+            </p>
+            <button type="button" className="fee-info-popover__close" onClick={() => setShowFeeInfo(false)}>
+              Got it
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="checkout-total-row">

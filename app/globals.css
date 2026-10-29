@@ -2911,13 +2911,18 @@ button:active:not(:disabled),
   margin-bottom: 1.25rem;
   font-size: 0.88rem;
 }
+/* Two equal halves: what it is on the left, the amount on the right */
 .checkout-fee-box__row {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: baseline;
   gap: 0.75rem;
   margin-bottom: 0.4rem;
   color: var(--brand-dark);
   font-weight: 600;
+}
+.checkout-fee-box__row strong {
+  text-align: right;
 }
 .checkout-fee-box p { margin: 0.4rem 0 0; color: var(--muted); font-size: 0.8rem; }
 .checkout-total-row {
@@ -4449,14 +4454,17 @@ textarea {
   flex-shrink: 0;
   white-space: nowrap;
 }
+/* Total on top; Status on the left and Map Route on the right; Cancel centred */
 .order-card__footer {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
   gap: 0.75rem;
   padding-top: 0.85rem;
   border-top: 1px solid var(--border);
+}
+.order-card__cancel {
+  display: flex;
+  justify-content: center;
 }
 .order-card__total {
   display: flex;
@@ -4474,10 +4482,9 @@ textarea {
 }
 .order-card__actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 0.5rem;
-  margin-left: auto;
 }
 .order-card__actions .btn-ghost,
 .order-card__actions button {
@@ -4571,4 +4578,76 @@ textarea {
   font-size: 0.85rem;
   text-decoration: underline;
   cursor: pointer;
+}
+
+/* Notifications box on phones: text across the full width, button underneath */
+@media (max-width: 600px) {
+  .push-toggle {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+  }
+  .push-toggle__text {
+    flex: none;
+    width: 100%;
+  }
+  .push-toggle .btn-primary,
+  .push-toggle .btn-ghost {
+    align-self: flex-start;
+  }
+}
+
+/* "How is this worked out?" in the checkout fee box, opened as a pop-up */
+.checkout-fee-box {
+  position: relative;
+}
+.fee-info-toggle {
+  margin-top: 0.35rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.fee-info-popover {
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+  top: calc(100% - 0.25rem);
+  z-index: 20;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  box-shadow: 0 10px 30px var(--shadow-color);
+  animation: fee-info-in 0.15s ease;
+}
+.checkout-fee-box .fee-info-popover p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.fee-info-popover__close {
+  margin-top: 0.6rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--brand-light);
+  color: var(--brand-dark);
+  font-weight: 650;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+@keyframes fee-info-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

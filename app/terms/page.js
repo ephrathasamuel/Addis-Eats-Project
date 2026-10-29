@@ -51,7 +51,7 @@ export default function TermsPage() {
 
       <h2>Cancelling</h2>
       <p>
-        You can cancel an order yourself within 5 minutes of placing it, as long as the kitchen has not started
+        You can cancel an order yourself within 3 minutes of placing it, as long as the kitchen has not started
         cooking it. After that, please call us on <a href={BUSINESS.phoneHref}>{BUSINESS.phone}</a>.
       </p>
 

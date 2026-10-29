@@ -24,12 +24,12 @@ export function OrderStatus({ id, initial, back = { href: "/orders", label: "Bac
   const current = order || initial;
   const isFinished = current.status === "delivered" || current.status === "cancelled";
 
-  // Cancel Request is allowed only within 5 minutes of placing the order
+  // Cancel Request is allowed only within 3 minutes of placing the order
   const orderTime = new Date(current.createdAt).getTime();
   const isCancellable =
     current.status === "placed" &&
     !isNaN(orderTime) &&
-    Date.now() - orderTime < 5 * 60 * 1000;
+    Date.now() - orderTime < 3 * 60 * 1000;
 
   const handleCancelRequest = async () => {
     if (!confirm("Are you sure you want to cancel this order?")) return;

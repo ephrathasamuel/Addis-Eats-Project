@@ -50,7 +50,7 @@ export function OrderList({ orders }) {
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
       {orderState.map((order) => {
         const orderAgeMinutes = (Date.now() - new Date(order.createdAt).getTime()) / 60000;
-        const canCancel = order.status === "placed" && orderAgeMinutes <= 5;
+        const canCancel = order.status === "placed" && orderAgeMinutes <= 3;
 
         return (
           <div
@@ -166,7 +166,10 @@ export function OrderList({ orders }) {
                     Map Route
                   </Link>
                 )}
-                {canCancel && (
+              </div>
+
+              {canCancel && (
+                <div className="order-card__cancel">
                   <button
                     onClick={() => handleCancel(order.id)}
                     disabled={cancellingId === order.id}
@@ -183,8 +186,8 @@ export function OrderList({ orders }) {
                   >
                     {cancellingId === order.id ? "Submitting..." : "Cancel Request"}
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         );
