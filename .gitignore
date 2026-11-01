@@ -8,3 +8,7 @@ npm-debug.log*
 .agents/
 .aider-desk/
 skills-lock.json
+
+# Local AI tool instructions (kept on this computer only)
+CLAUDE.md
+AGENTS.md
