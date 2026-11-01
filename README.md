@@ -1,118 +1,120 @@
-# Addis Eats - Full Stack Next.js Food Ordering Platform
+# Addis Eats: Food Ordering and Delivery
 
-> **IBT College - CodeOps Full Stack Software Development**  
-> **Module 3: Frontend (React & Next.js) - Capstone Production Release**
+Addis Eats is a full-stack food ordering system for a restaurant in Addis Ababa. Customers order and pay online or in cash and follow their delivery on a live map. The kitchen and couriers each have their own board, and the admin runs the menu, staff, hours and finances. It started as the capstone of the **IBT-QIYAS Full-Stack Software Development Program** and grew over four versions, from a React menu to this Next.js app with a shared database, payments and push notifications.
 
----
-
-## 1. Live Deployment and Access
-
-- **Production URL:** `https://addis-eats-capstone.vercel.app`
-- **Platform:** Vercel (Next.js 16 with Turbopack)
-- **Deployment Status:** Demo deployment; configure shared persistent storage and provisioned staff accounts before production use.
-
-### Role Access Reference
-Customers register themselves (Supabase Auth, or local accounts when Supabase is not configured) and can use Google sign-in through Supabase. Kitchen staff and couriers are registered by the admin at `/admin/staff`; there is no public staff sign-up. The first admin is created on first start. See [AUTH.md](./AUTH.md) for the full model, including the shared kitchen tablet, and [SUPABASE.md](./SUPABASE.md) for Supabase and Google setup.
+**Live site:** https://addis-eats-project-taupe.vercel.app
 
 ---
 
-## 2. Eight-Minute Presentation Walkthrough
-
-When presenting Addis Eats from the live production URL, follow this timed walkthrough:
-
-### Minute 0 to 1: Problem and Local Addis Ababa Context
-- Introduce Addis Eats: A localized food ordering platform tailored for Addis Ababa, bridging authentic Ethiopian cuisine (Doro Wat, Tibs, Shiro) and Western classics (Burgers, Pizza).
-- Highlight local challenges solved: Neighborhood-specific delivery fees and estimated travel-time ranges across Addis Ababa. The current ranges are static, not routing- or traffic-based.
-
-### Minute 1 to 3: Customer Discovery and Order Placement
-- Demonstrate the homepage hero banner with optimized WebP media and zero layout shift.
-- Navigate to `/menu`: Showcase instant search-as-you-type with debouncing and category filtering.
-- Inspect dish detail on `/menu/[id]` and demonstrate breadcrumb navigation.
-- Add dishes to the cart and open `/cart`: Highlight the mobile-friendly item layout, portion controls, and subtotal calculation.
-- Proceed to `/checkout`: Show address selection with live delivery fee calculation, double-submit button guard, and form placement.
-
-### Minute 3 to 5: Live Order Tracking and Post-Delivery Workflow
-- Arrive at `/checkout/confirmation`: Point out the persistent cart clearing via ClearCartOnMount and the kitchen status banner.
-- Open `/orders/[id]`: Demonstrate real-time status tracking driven by SWR live polling (every 5 seconds).
-- Courier GPS is opt-in from the courier delivery page and appears only when the assigned courier shares browser location. Customers can optionally add a delivery map pin at checkout.
-- Showcase the Cancel Request action, strictly available within the first 5 minutes of order placement.
-- Show the receipt confirmation prompt ("Did you receive your delivery?") and the post-delivery review card featuring 5 purple stars and feedback submission.
-
-### Minute 5 to 6: Staff and Administrative Operations
-- Switch to `/kitchen` in **Shared kitchen tablet** mode: select tickets, press Claim, tap a cook and enter their PIN. Show the per-cook counts.
-- Switch to `/delivery`: Show couriers accepting orders from the live pool and completing deliveries; then show the courier card on the customer's order page.
-- Open `/admin/staff`: Register a cook and a courier, reset a password, remove a staff member.
-- Switch to `/admin`: Inspect aggregated revenue metrics, neighborhood sales distribution, and order history management.
-
-### Minute 6 to 7: Security Architecture and Performance Verification
-- Explain the 3-layer security defense: Edge middleware, Server Component guards, and Server Action role verification.
-- Highlight the 3 failed attack scenarios documented in `AUTH.md`: console write refusal, foreign user ID tampering refusal, and open-redirect neutralization.
-- Present performance metrics from `PERF.md`: LCP of 1.8s, CLS of 0.00, and 100 Accessibility score.
-- Explain the local opaque-session store and role-scoped order queries. The included JSON files are for single-process development, not serverless production persistence.
-
-### Minute 7 to 8: Engineering Retrospective and Module 4 Roadmap
-- Summarize feature triage from `FUTURE.md`: Must/Should/Could decisions.
-- Outline the transition to the Module 4 Backend: decoupled Nest.js/Go API, PostgreSQL database with Prisma ORM, and TeleBirr webhook processing.
-- Open for questions and peer review discussion from `REVIEW.md`.
-
----
-
-## 3. Five Anchor Files for Code Review
-
-Open these five files in editor tabs to examine the core architecture:
-1. **Server Component:** `app/orders/page.js` - Server-side session verification and user-scoped data fetching.
-2. **Client Component:** `app/orders/[id]/OrderStatus.jsx` - SWR live polling, dynamic interval pausing, receipt confirmation, and 5-star review.
-3. **Protected Server Action:** `app/actions.js` - Multi-role authorization checks for `placeOrder`, `cancelOrder`, `kitchenClaimAction`, and staff management.
-4. **Data Layer and Domain State:** `lib/orders.js` - Order state management, role-scoped data, and workflow transitions.
-5. **Performance Refactor:** `app/menu/DishCard.jsx` - Refactored to pure Server Component to reduce client JavaScript and optimize LCP.
-
----
-
-## 4. Running Locally from a Fresh Clone
-
-Follow these steps to run the application locally:
+## Quick start
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/IBT-Qiyas-Full-Stack-Academy/sq2-iphratha-samuel.git
-cd sq2-iphratha-samuel/module-04-backend/days/Day_48/addis-eats
-
-# 2. Install dependencies
 npm install
-
-# 3. Configure environment variables
-cp .env.example .env.local
-
-# 4. Run development server with Turbopack
-npm run dev
-
-# 5. Or build and run for production verification
-npm run build
-npm run start
+cp .env.example .env.local   # then fill it in (see "Settings" below)
+npm run dev                  # http://localhost:3000
+npm run lint
+npm run build && npm run start
 ```
 
+Without any settings the app still runs: data is kept in `.addis-data/` JSON files, customers use local accounts, and payment is cash on delivery.
+
 ---
 
-## 5. Environment Variables Reference
+## Who uses Addis Eats
 
-| Variable | Required | Description | Example |
+| Account | How it is created | Signs in at | Area |
 |---|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes for authentication | Supabase project URL | `https://your-project-ref.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes for authentication | Supabase public publishable key (or legacy anon key) | Configure privately |
-| `ADDIS_SESSION_SECRET` | Recommended | Secret for signing local session cookies | Long random string |
-| `ADDIS_ADMIN_EMAIL` / `ADDIS_ADMIN_PASSWORD` | Recommended | First admin account created on first start | Configure privately |
-| `ADDIS_DATA_DIR` | Optional | Directory for local JSON stores (orders, dishes, accounts, uploaded photos) | `.addis-data` |
-| `NEXT_PUBLIC_SITE_URL` | Yes | Canonical app URL for metadata and sitemap | `http://localhost:3000` |
-| `NODE_ENV` | Yes | Deployment environment flag | `production` |
+| **Customer** | Registers at `/signin`, or with Google | `/signin` | Menu, cart, checkout, orders, live tracking, favourites, profile |
+| **Kitchen staff** | Registered by the admin at `/admin/staff` | `/staff/signin` | `/kitchen`: order board and history |
+| **Kitchen tablet** | A shared tablet set up by the admin | `/kitchen/tablet` | The kitchen board; each cook claims orders with their PIN |
+| **Courier** | Registered by the admin (name, phone and photo) | `/staff/signin` | `/delivery`: delivery pool, map and history |
+| **Admin** | From `ADDIS_ADMIN_EMAIL` / `ADDIS_ADMIN_PASSWORD` on first start | `/staff/signin` | `/admin`: menu, orders, staff, team, finances, settings |
+
+There is no public staff sign-up. The server decides each person's role from their account, never from the browser. See [AUTH.md](./AUTH.md) for the full model.
 
 ---
 
-## 6. Project Documentation Index
+## Features
 
-- `AUTH.md` - Authentication and authorization boundaries.
-- `SUPABASE.md` - Supabase project setup, migration, and trusted role assignment.
-- `PERF.md` - Performance budget, Core Web Vitals (LCP, CLS, INP), and optimization techniques.
-- `DATA.md` - Client and server data fetching rationale, SWR caching rules, and revalidation models.
-- `FUTURE.md` - Feature triage (Must, Should, Could), cut decisions, and Module 4 backend transition roadmap.
-- `REVIEW.md` - Peer code review guide, 3 architectural strengths, 3 discussion questions, and rubric matrix.
-- `SEO.md` - Metadata configuration, OpenGraph card generation, sitemap, and robots.txt.
+### Customers
+- Menu with search-as-you-type, categories and dish pages; cart and favourites.
+- Checkout with a delivery fee per neighbourhood, an optional map pin, and driving-time estimates. When a field is missing, the page jumps to it.
+- **Pay online with Chapa** (telebirr, CBE Birr, cards) or in cash on delivery. Chapa opens in a pop-up window, and the order page continues by itself once payment is confirmed.
+- Live order status, the courier's name, phone and photo, and the courier's location on a map when they share it.
+- **Push notifications** for each stage: confirmed, cooking, on the way, delivered. The app asks once when an order is placed; switch them off in Profile → Notifications.
+- Cancel within the first 5 minutes, confirm delivery with a code, rate the food and the courier, and report a problem.
+- English and Amharic, and an option to delete the account.
+
+### Kitchen and couriers
+- Kitchen board with new, cooking and ready columns, and alerts when an order arrives.
+- Shared kitchen tablet: cooks claim orders with a 4- to 6-digit PIN, so each cook gets credit for their orders.
+- Courier board: take orders from the live pool, see the customer's pin and directions, share location, and finish with the customer's delivery code.
+
+### Admin
+- **Taking orders:** pause new orders with a message, or set opening hours.
+- Menu management: add or edit dishes, photos, prices, availability.
+- Every order, with editing, CSV export and problem reports.
+- Staff accounts: register cooks and couriers, reset passwords, remove staff.
+- Team page: each person's orders, ratings and activity by day, week or month.
+- Finances: income from orders against daily ingredient and transport costs.
+- Favourite dishes by neighbourhood.
+
+### Site
+- Privacy policy (`/privacy`) and terms of use (`/terms`).
+- Installable as an app on phones (web app manifest), with security headers that stop other sites from embedding it in a frame.
+
+---
+
+## How it works
+
+1. **One shared database.** With Supabase set up, every record (orders, dishes, accounts, costs) lives in the table `addis_records` (see `supabase/setup.sql`), so every server instance on Vercel sees the same data. Without it, data lives in `.addis-data/` files. Each request loads the latest data first and saves its changes before it finishes.
+2. **Every change is checked on the server.** Server actions (`app/actions.js`) and API routes check the signed-in role before doing anything. Order data is filtered by role: a customer sees only their own orders, and a courier only the ones they deliver.
+3. **Sign-in.** Staff and local accounts use scrypt-hashed passwords and a signed, httpOnly session cookie. Changing a password signs out every other device, and repeated wrong passwords lock sign-in for a while. Customers can also use Supabase Auth with Google.
+4. **Payments are verified with Chapa.** An order counts as paid only after the server checks it with Chapa's verify API using the secret key. Signed webhooks are checked too. Nothing the browser says is trusted.
+5. **Delivery estimates** use Google's Routes API with live traffic when a key is set. Otherwise they use the public OSRM road router, or the neighbourhood's time range when there is no map pin.
+
+---
+
+## Settings
+
+Put these in `.env.local` locally, and under **Vercel → Settings → Environment Variables** for the live site:
+
+| Variable | What it is |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase project address and publishable key (customer accounts, Google sign-in) |
+| `SUPABASE_SECRET_KEY` | Supabase secret key (`sb_secret_…`): lets every server share one database. Never prefix it with `NEXT_PUBLIC_`. |
+| `ADDIS_SESSION_SECRET` | Long random text that signs session cookies |
+| `ADDIS_ADMIN_EMAIL`, `ADDIS_ADMIN_PASSWORD` | The first admin account |
+| `CHAPA_SECRET_KEY` | Chapa private key. Without it, payment is cash on delivery. |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Push notification keys: `npx web-push generate-vapid-keys` |
+| `ADDIS_RESTAURANT_LAT`, `ADDIS_RESTAURANT_LNG` | Restaurant location for driving times (defaults to Bole Road) |
+| `GOOGLE_MAPS_API_KEY` | Optional: live-traffic estimates (Routes API, billed by Google) |
+| `NEXT_PUBLIC_SITE_URL` | The site's address, for metadata, the sitemap and payment return links |
+| `ADDIS_DATA_DIR` | Optional folder for the local JSON files |
+
+**Supabase setup, once:** run `supabase/setup.sql` in **SQL Editor**, or run `npm run setup:supabase`. Google sign-in and redirect URLs are described in [SUPABASE.md](./SUPABASE.md).
+
+---
+
+## More documentation
+
+- [AUTH.md](./AUTH.md): accounts, sessions, roles and the kitchen tablet
+- [SUPABASE.md](./SUPABASE.md): Supabase and Google sign-in setup
+- [DATA.md](./DATA.md): how data is loaded and refreshed
+- [PERF.md](./PERF.md): performance budget and Core Web Vitals
+- [SEO.md](./SEO.md): metadata, share images, sitemap and robots
+- [BOUNDARY.md](./BOUNDARY.md): server and client components
+- [FUTURE.md](./FUTURE.md): what's planned next
+
+---
+
+## Testing
+
+The checkout, payment, notification and role flows were checked with automated Playwright end-to-end runs during development. Those runs use file storage, a stand-in for the Supabase database and a stand-in for Chapa. The test scripts are not in this repository yet.
+
+---
+
+## License & attribution
+
+Created for the **IBT-QIYAS Full-Stack Software Development Program**.
+All rights reserved © 2026 Addis Eats.
