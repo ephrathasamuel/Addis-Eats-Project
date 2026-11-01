@@ -4,6 +4,11 @@ Addis Eats is a full-stack food ordering system for a restaurant in Addis Ababa.
 
 **Live site:** https://addis-eats-project-taupe.vercel.app
 
+<p>
+  <img src="docs/screenshots/home.jpg" alt="Addis Eats home page" width="49%" />
+  <img src="docs/screenshots/menu.jpg" alt="Addis Eats menu with dishes, prices and Add to cart" width="49%" />
+</p>
+
 ---
 
 ## Quick start
